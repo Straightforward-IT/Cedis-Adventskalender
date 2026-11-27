@@ -398,7 +398,14 @@ export interface StreetLayout {
   /** Weihnachtsbaum auf dem Platz hinter dem Tor. */
   treeX: number
   cameraMinX: number
+  /** Die Garage mit Basketballkorb in der Einfahrt zwischen Haus 14 und 15 (Mitte und Breite der Lücke). */
+  garage: { x: number; gap: number }
 }
+
+/** Nach diesem Haus liegt die Einfahrt mit der Garage (Weihnachtskugelball). */
+export const GARAGE_AFTER_DAY = 14
+/** So breit ist die Lücke für Einfahrt und Garage. */
+export const GARAGE_GAP = 5.6
 
 /** Länge der Allee zwischen dem letzten Haus und dem Tor. */
 const GATE_APPROACH = 19
@@ -411,14 +418,17 @@ const TREE_BEHIND_GATE = PLAZA_RADIUS + 4.5
 export function createStreetLayout(streetSeed: number = STREET_SEED): StreetLayout {
   const rnd = createRandom(hashSeed(streetSeed, 'strasse'))
   let cursor = 0
+  let garageX = 0
   const plots = generateStreet(streetSeed).map((spec) => {
     const x = round(cursor + spec.width / 2)
-    cursor += spec.width + rnd.range(0.45, 1)
+    const gap = rnd.range(0.45, 1)
+    cursor += spec.width + (spec.day === GARAGE_AFTER_DAY ? GARAGE_GAP : gap)
+    if (spec.day === GARAGE_AFTER_DAY) garageX = round(x + spec.width / 2 + GARAGE_GAP / 2)
     return { spec, x }
   })
   const last = plots[plots.length - 1]
   const endX = last.x + last.spec.width / 2
   const gateX = round(endX + GATE_APPROACH)
   const treeX = round(gateX + TREE_BEHIND_GATE)
-  return { plots, endX, signX: -5.5, gateX, treeX, cameraMinX: -4 }
+  return { plots, endX, signX: -5.5, gateX, treeX, cameraMinX: -4, garage: { x: garageX, gap: GARAGE_GAP } }
 }

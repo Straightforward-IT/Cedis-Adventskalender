@@ -6,6 +6,18 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "PORT=2412 npm run dev"],
       "port": 5180
+    },
+    {
+      "name": "frontend-5190",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd frontend && npx vite --port 5190 --strictPort"],
+      "port": 5190
+    },
+    {
+      "name": "production-build",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd frontend && npx wrangler dev --port 8787 --local"],
+      "port": 8787
     }
   ]
 }

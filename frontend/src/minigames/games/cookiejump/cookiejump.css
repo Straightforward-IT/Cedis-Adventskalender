@@ -1,0 +1,106 @@
+/* Plätzchen-Hüpfer: Santa springt von Keks zu Keks in den Nachthimmel. */
+
+.cookiejump {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+
+.cookiejump__view {
+  position: relative;
+  width: min(100%, calc(68vh * 2 / 3));
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #2a2e62;
+  box-shadow: 0 10px 26px rgb(10 10 30 / 0.35);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+}
+
+.cookiejump__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cookiejump__score {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  background: rgb(255 246 230 / 0.92);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
+.cookiejump__count {
+  display: inline-block;
+  font-weight: 700;
+  animation: cookiejump-bump 0.35s ease-out;
+}
+
+.cookiejump__goal {
+  color: var(--cocoa-soft);
+  font-size: 0.95rem;
+}
+
+@keyframes cookiejump-bump {
+  0% { transform: scale(1.7); color: var(--berry); }
+  100% { transform: scale(1); }
+}
+
+.cookiejump__start {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: rgb(15 18 51 / 0.35);
+  color: #fff;
+  font-family: var(--font-display);
+  text-shadow: 0 2px 8px rgb(0 0 0 / 0.5);
+  pointer-events: none;
+}
+
+.cookiejump__start strong {
+  font-size: 1.5rem;
+  animation: cookiejump-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes cookiejump-pulse {
+  50% { transform: scale(1.06); }
+}
+
+.cookiejump__hint {
+  min-height: 2.6em;
+  max-width: 520px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  color: var(--cocoa);
+}
+
+.cookiejump__hint[data-done='true'] {
+  color: var(--pine);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cookiejump__count,
+  .cookiejump__start strong {
+    animation: none;
+  }
+}

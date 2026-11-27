@@ -13,6 +13,7 @@ import {
 } from './cameraRig.ts'
 import type { Entrance, StreetEnd } from './cameraRig.ts'
 import { createCakeConveyor } from './cakeConveyor.ts'
+import { buildBalconyCat } from './cat.ts'
 import type { CakeConveyor } from './cakeConveyor.ts'
 import { buildEaselFrame, createPicture, loadSvgTexture } from './easel.ts'
 import { buildPeekingElf } from './elf.ts'
@@ -22,6 +23,11 @@ import { buildGingerbreadHouse, GINGER_SCALE } from './gingerbreadHouse.ts'
 import type { GingerbreadDesign } from './gingerbreadHouse.ts'
 import { buildGableReindeer } from './reindeer.ts'
 import { buildLightChain } from './lightChain.ts'
+import { createGluehweinStand, GLUEHWEIN_STAND_Z, standOffset } from './gluehweinStand.ts'
+import { HoopShot } from './hoopShot.ts'
+import { createSantaWindows } from './santaWindows.ts'
+import type { SantaWindows } from './santaWindows.ts'
+import { buildHoop, GARAGE_PLAQUE } from './garage.ts'
 import { buildSleighWithSanta } from './sleigh.ts'
 import { buildSquirrel } from './squirrel.ts'
 import { createEnvironment } from './environment.ts'
@@ -32,6 +38,7 @@ import type { HouseAnchors, ShowcaseWindow } from './houseBuilder.ts'
 import {
   DOOR_HEIGHT,
   DOOR_WIDTH,
+  GARAGE_AFTER_DAY,
   GROUND_FLOOR,
   STREET_SEED,
   UPPER_FLOOR,
@@ -326,10 +333,24 @@ export class StreetScene {
   private readonly showcases = new Map<number, ShowcaseWindow[]>()
   /** Kaminfenster (oben rechts) je Haus. */
   private readonly hearths = new Map<number, ShowcaseWindow>()
+  /** Balkone (Mitte der Bodenplatte) je Haus. */
+  private readonly balconies = new Map<number, THREE.Vector3>()
+  /** Easter Egg nach „Durch den Schornstein“: die Katze auf dem Balkon von Haus 12. */
+  private balconyCat: { root: THREE.Group; group: THREE.Group; tail: THREE.Mesh; day: number } | null = null
   /** Vordere Dachkante je Haus – für die Lichterkette. */
   private readonly eaves = new Map<number, HouseAnchors['eaves']>()
   /** Nach dem Lichterketten-Schlamassel: die bunte Kette an der Dachkante. */
   private lightChain: { group: THREE.Group; day: number } | null = null
+  /** Wo vor jedem Haus ein Glühweinstand neben der Tür Platz hätte (x relativ zur Hausmitte). */
+  private readonly standSpots = new Map<number, number>()
+  /** Nach dem Glühwein-Fieber: der Glühweinstand auf dem Gehweg vor Haus 13 – ein Wichtel schenkt dort aus. */
+  private gluehweinStand: { group: THREE.Group; update(time: number): void; day: number } | null = null
+  /** Nach dem Weihnachtskugelball: Korb antippen wirft eine Kugel durch – die Scherben bleiben liegen. */
+  private hoopShot: HoopShot | null = null
+  /** Der Basketballkorb über der Garage – erst ab Tag 14 angeschraubt. */
+  private garageHoop: THREE.Group | null = null
+  /** Nach dem Plätzchen-Hüpfer: kleiner Santa, der hinter den oberen Fenstern von Haus 15 hüpft. */
+  private santaWindows: { windows: SantaWindows; day: number } | null = null
   /** Nach dem Holzhacken: Wichtel am Kamin und Flammen aus dem Schornstein. */
   private fireplace: { window: Fireplace; flames: ChimneyFlames | null; day: number } | null = null
   /** Das selbst verzierte Lebkuchenhaus im Fenster von Haus 7. */
@@ -467,7 +488,9 @@ export class StreetScene {
 
     if (anchors.showcase.length) this.showcases.set(spec.day, anchors.showcase)
     if (anchors.hearth) this.hearths.set(spec.day, anchors.hearth)
+    if (anchors.balcony) this.balconies.set(spec.day, anchors.balcony)
     this.eaves.set(spec.day, anchors.eaves)
+    this.standSpots.set(spec.day, standOffset(anchors.doorX, spec.width))
     let candles: Stop['candles'] = null
     if (geometry.candles) {
       // Kerzen brennen immer hell – auch an Häusern, deren Tag noch nicht gekommen ist.
@@ -509,7 +532,10 @@ export class StreetScene {
       photoAnchor: { x: anchors.doorX, y: DOOR_HEIGHT * 0.55, z: 0.6 },
       photoScale: 0.72,
       wreathAnchor: anchors.photo,
-      plaques: [anchors.plaque],
+      // Haus 14 trägt seine Nummer auch an der Garage nebenan.
+      plaques: spec.day === GARAGE_AFTER_DAY
+        ? [anchors.plaque, { ...GARAGE_PLAQUE, x: this.layout.garage.x - plot.x + GARAGE_PLAQUE.x }]
+        : [anchors.plaque],
       smokeOrigin: anchors.smoke ? anchors.smoke.clone().add(group.position) : null,
       opaqueDoor: true,
     }
@@ -716,6 +742,10 @@ export class StreetScene {
           this.stopInspecting()
           return
         }
+        if (this.hoopShot?.hits(x, y, this.canvas, this.camera) && this.hoopShot.shoot(this.camera)) {
+          this.options.onInteract()
+          return
+        }
         if (this.throwAtCritter(x, y)) return
         if (this.focusDay === null && this.inspectAt(x, y)) return
         const day = this.pick(x, y)
@@ -723,7 +753,8 @@ export class StreetScene {
         else if (this.focusDay !== null) this.options.onBackgroundTap()
       },
       onHover: (x, y) => {
-        this.canvas.style.cursor = !this.locked && this.pick(x, y) !== null ? 'pointer' : 'grab'
+        const hoop = this.hoopShot?.hits(x, y, this.canvas, this.camera) ?? false
+        this.canvas.style.cursor = !this.locked && (hoop || this.pick(x, y) !== null) ? 'pointer' : 'grab'
       },
     })
 
@@ -1082,6 +1113,130 @@ export class StreetScene {
     this.lightChain!.group.visible = true
   }
 
+  /** Hinter den oberen Fenstern von Haus `day` hüpft Santa von Keks zu Keks – mit null ist er weg. */
+  setSantaWindows(day: number | null): void {
+    const windows = day === null ? undefined : this.showcases.get(day)
+    if (!windows) {
+      if (this.santaWindows) this.santaWindows.windows.group.visible = false
+      return
+    }
+    if (this.santaWindows?.day !== day) {
+      if (this.santaWindows) {
+        this.santaWindows.windows.group.removeFromParent()
+        this.santaWindows.windows.dispose()
+      }
+      const santa = createSantaWindows(windows)
+      this.disposables.push(santa)
+      this.stop(day!).group.add(santa.group)
+      this.santaWindows = { windows: santa, day: day! }
+    }
+    this.santaWindows!.windows.group.visible = true
+    this.santaWindows!.windows.update(this.time.value)
+  }
+
+  /** Vor Tag 14 hat die Garage noch keinen Korb – im Spiel von Haus 14 wird er angeschraubt. */
+  setGarageHoop(visible: boolean): void {
+    if (!visible) {
+      if (this.garageHoop) this.garageHoop.visible = false
+      return
+    }
+    if (!this.garageHoop) {
+      const geometry = buildHoop()
+      const glow = createGlowMaterial(this.time)
+      const halo = createGlowMaterial(this.time, { halo: true })
+      const group = new THREE.Group()
+      group.position.x = this.layout.garage.x
+      group.add(new THREE.Mesh(geometry.solid, this.solidMaterial), new THREE.Mesh(geometry.glow, glow), new THREE.Mesh(geometry.halo, halo))
+      this.disposables.push(geometry.solid, geometry.glow, geometry.halo, glow, halo)
+      this.scene.add(group)
+      this.garageHoop = group
+    }
+    this.garageHoop.visible = true
+  }
+
+  /** Weihnachtskugelball geschafft: Ab jetzt lässt sich auf der Straße der Korb über der Garage antippen. */
+  setHoopShot(enabled: boolean): void {
+    if (!enabled) {
+      if (this.hoopShot) this.hoopShot.group.visible = false
+      return
+    }
+    if (!this.hoopShot) {
+      this.hoopShot = new HoopShot(this.layout.garage.x)
+      this.scene.add(this.hoopShot.group)
+      this.disposables.push(this.hoopShot)
+    }
+    this.hoopShot.group.visible = true
+  }
+
+  /**
+   * Glühwein-Fieber geschafft: Der Glühweinstand steht ab dann dauerhaft auf dem Gehweg vor
+   * Haus `day`, neben der Haustür – ein Wichtel steht als Barkeeper dahinter und rührt im Topf.
+   * Mit null wird er wieder abgebaut.
+   */
+  setGluehweinStand(day: number | null): void {
+    const offset = day === null ? undefined : this.standSpots.get(day)
+    if (offset === undefined) {
+      if (this.gluehweinStand) this.gluehweinStand.group.visible = false
+      if (this.inspecting?.id === 'gluehwein-stand') this.stopInspecting()
+      return
+    }
+    if (this.gluehweinStand?.day !== day) {
+      if (this.gluehweinStand) this.gluehweinStand.group.removeFromParent()
+      const stand = createGluehweinStand(this.solidMaterial, this.time, { bartender: true })
+      stand.group.position.set(offset, 0, GLUEHWEIN_STAND_Z)
+      this.disposables.push(stand)
+      this.stop(day!).group.add(stand.group)
+      this.gluehweinStand = { group: stand.group, update: stand.update, day: day! }
+    }
+    this.gluehweinStand!.group.visible = true
+  }
+
+  /** Nach dem Wohnzimmer-Abenteuer sitzt die Katze draußen auf dem Balkon von Haus `day` – mit null ist sie wieder drin. */
+  setBalconyCat(day: number | null): void {
+    const spot = day === null ? undefined : this.balconies.get(day)
+    if (!spot) {
+      if (this.balconyCat) this.balconyCat.root.visible = false
+      if (this.inspecting?.id === 'balcony-cat') this.stopInspecting()
+      return
+    }
+    if (!this.balconyCat) {
+      const cat = buildBalconyCat()
+      const group = new THREE.Group()
+      const tail = new THREE.Mesh(cat.tail, this.solidMaterial)
+      tail.position.copy(cat.tailBase)
+      group.add(new THREE.Mesh(cat.body, this.solidMaterial), tail)
+      this.disposables.push(cat.body, cat.tail)
+      // Etwas größer als echt, damit man sie von der Straße aus erkennt – etwas links
+      // von der Mitte, damit sie zwischen den Gitterstäben gut zu sehen ist.
+      group.scale.setScalar(1.35)
+      group.position.set(-0.3, 0, -0.05)
+      group.rotation.y = 0.25
+      // Unsichtbare Tippfläche über den ganzen Balkon – die Katze allein ist zu klein zum Treffen.
+      const hitGeometry = new THREE.BoxGeometry(1.85, 1.2, 1.05)
+      const hitbox = new THREE.Mesh(hitGeometry, this.solidMaterial)
+      hitbox.position.set(0, 0.5, 0.02)
+      hitbox.visible = false
+      this.disposables.push(hitGeometry)
+      const root = new THREE.Group()
+      root.add(group, hitbox)
+      this.balconyCat = { root, group, tail, day: day! }
+    }
+    const cat = this.balconyCat
+    cat.root.position.copy(spot)
+    if (cat.day !== day || !cat.root.parent) this.stop(day!).group.add(cat.root)
+    cat.day = day!
+    cat.root.visible = true
+  }
+
+  private updateBalconyCat(): void {
+    const cat = this.balconyCat
+    if (!cat?.root.visible) return
+    const t = this.time.value
+    // Schwanz wedelt gemächlich, ab und zu zuckt die Spitze.
+    cat.tail.rotation.y = Math.sin(t * 1.3) * 0.45 + Math.max(0, Math.sin(t * 0.37)) ** 8 * Math.sin(t * 14) * 0.25
+    cat.tail.rotation.z = Math.sin(t * 0.9) * 0.12
+  }
+
   /** Nach Santa Bibber (Haus 11) fliegt der Weihnachtsmann bei jedem Blick zum Baum vorbei. */
   setSantaFlyby(enabled: boolean): void {
     this.flybyEnabled = enabled
@@ -1207,6 +1362,19 @@ export class StreetScene {
     if (chain?.group.visible) {
       const box = new THREE.Box3().setFromObject(chain.group)
       list.push({ id: 'light-chain', label: 'Lichterkette an Haus 9', object: chain.group, view: front(box.getCenter(new THREE.Vector3()), 6.5, 40, -0.6) })
+    }
+    const stand = this.gluehweinStand
+    if (stand?.group.visible) {
+      list.push({ id: 'gluehwein-stand', label: 'Glühweinstand vor Haus 13', object: stand.group, view: (out) => front(world(stand.group, 0, 1.6, 0), 5.5, 40, -0.2)(out) })
+    }
+    const balconyCat = this.balconyCat
+    if (balconyCat?.root.visible) {
+      list.push({
+        id: 'balcony-cat',
+        label: 'Katze auf dem Balkon',
+        object: balconyCat.root,
+        view: (out) => front(world(balconyCat.group, 0, 0.3, 0), 2.4, 38, 0.15)(out),
+      })
     }
     const fireplace = this.fireplace
     if (fireplace?.window.group.visible) {
@@ -1650,9 +1818,13 @@ export class StreetScene {
     this.updateCritter(dt)
     this.updateReindeer(dt)
     this.updateFlyby(dt)
+    this.updateBalconyCat()
     if (this.conveyor?.conveyor.group.visible) this.conveyor.conveyor.update(this.time.value)
     if (this.skiHalfpipe?.group.visible) this.skiHalfpipe.update(this.time.value)
     if (this.fireplace?.window.group.visible) this.fireplace.window.update(this.time.value)
+    if (this.gluehweinStand?.group.visible) this.gluehweinStand.update(this.time.value)
+    this.hoopShot?.update(dt)
+    if (this.santaWindows?.windows.group.visible) this.santaWindows.windows.update(this.time.value)
 
     const pixelsPerUnit =
       (this.height * this.pixelRatio) /

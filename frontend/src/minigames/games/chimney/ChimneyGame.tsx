@@ -1,13 +1,16 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import type { KeyboardEvent, ReactNode } from 'react'
+import { useStore } from '../../../state/store.ts'
 import type { MinigameProps } from '../../types.ts'
+import { BalconyScene } from './BalconyScene.ts'
+import type { BalconyCue } from './BalconyScene.ts'
 import { ChimneyScene } from './ChimneyScene.ts'
 import type { ChimneyCue } from './ChimneyScene.ts'
 import { interact, ITEM_LABEL, restoreRoom, tasks } from './model.ts'
 import type { Effect, Item, RoomState, Target } from './model.ts'
 import './chimney.css'
 
-type Stage = 'intro' | 'room'
+type Stage = 'intro' | 'room' | 'outro'
 
 const ROOM = { width: 720, height: 440 }
 const FLOOR_Y = 300
@@ -102,7 +105,13 @@ function Cat({ fed, mood }: { fed: boolean; mood: 'idle' | 'meow' | 'eat' }) {
   )
 }
 
-function Room({ state, effect, onAct }: { state: RoomState; effect: { kind: Effect; n: number } | null; onAct(target: Target): void }) {
+function Room({ state, effect, selfie, onAct }: {
+  state: RoomState
+  effect: { kind: Effect; n: number } | null
+  /** Das Selfie vom Eintreten (Data-URL) – hängt dann gerahmt an der Wand. */
+  selfie: string | null
+  onAct(target: Target): void
+}) {
   const hasItem = (item: Item) => state.items.includes(item)
   const catMood = effect?.kind === 'eat' ? 'eat' : effect?.kind === 'meow' ? 'meow' : 'idle'
   return (
@@ -139,8 +148,21 @@ function Room({ state, effect, onAct }: { state: RoomState; effect: { kind: Effe
       {/* Bild an der Wand */}
       <rect x="306" y="56" width="104" height="76" rx="4" fill="#6b4a33" />
       <rect x="314" y="64" width="88" height="60" fill="#dce8f5" />
-      <path d="M314 124l26 -30l18 18l14 -12l30 24Z" fill="#7d9a78" />
-      <circle cx="384" cy="80" r="7" fill="#f5d04a" />
+      {selfie ? (
+        <>
+          <clipPath id="room-portrait">
+            <rect x="314" y="64" width="88" height="60" />
+          </clipPath>
+          <image href={selfie} x="314" y="64" width="88" height="60" preserveAspectRatio="xMidYMid slice" clipPath="url(#room-portrait)" />
+          {/* Ein Hauch warmes Kaminlicht auf dem Glas */}
+          <rect x="314" y="64" width="88" height="60" fill="rgb(255 200 140 / 0.12)" />
+        </>
+      ) : (
+        <>
+          <path d="M314 124l26 -30l18 18l14 -12l30 24Z" fill="#7d9a78" />
+          <circle cx="384" cy="80" r="7" fill="#f5d04a" />
+        </>
+      )}
 
       {/* Kamin – hier ist man gerade herausgepurzelt */}
       <rect x="28" y="120" width="176" height="180" fill="#b9ada3" />
@@ -289,17 +311,21 @@ function Room({ state, effect, onAct }: { state: RoomState; effect: { kind: Effe
   )
 }
 
-export default function ChimneyGame({ savedState, saveState, completedBefore, onComplete }: MinigameProps) {
+export default function ChimneyGame({ day, savedState, saveState, completedBefore, onComplete }: MinigameProps) {
+  const selfie = useStore((store) => store.selfies[day] ?? null)
   const [state, setState] = useState<RoomState>(() => restoreRoom(savedState))
   const [stage, setStage] = useState<Stage>(() => {
     const restored = restoreRoom(savedState)
     return restored.items.length || restored.catFed || restored.escaped ? 'room' : 'intro'
   })
   const [dark, setDark] = useState(false)
+  /** Erst nach dem Abspann (oder bei einem schon geschafften Besuch) gibt es die Überraschung. */
+  const [finished, setFinished] = useState(() => restoreRoom(savedState).escaped)
   const [message, setMessage] = useState<string | null>(null)
   const [effect, setEffect] = useState<{ kind: Effect; n: number } | null>(null)
   const canvas = useRef<HTMLCanvasElement>(null)
   const intro = useRef<ChimneyScene | null>(null)
+  const outro = useRef<BalconyScene | null>(null)
   const timers = useRef<number[]>([])
   const save = useEffectEvent(saveState)
 
@@ -328,12 +354,39 @@ export default function ChimneyGame({ savedState, saveState, completedBefore, on
     }
   }, [stage])
 
+  // Abspann: durch die Balkontür hinaus auf die Straße.
+  const onBalconyCue = useEffectEvent((cue: BalconyCue) => {
+    if (cue === 'fade') setDark(true)
+    if (cue === 'unfade') setDark(false)
+    if (cue === 'done') {
+      setFinished(true)
+      setMessage('Geschafft – leise über den Balkon und hinaus in die Nacht! 🌙')
+    }
+  })
+  useEffect(() => {
+    if (stage !== 'outro' || !canvas.current) return
+    const scene = new BalconyScene(canvas.current, { onCue: (cue) => onBalconyCue(cue) })
+    outro.current = scene
+    return () => {
+      scene.dispose()
+      outro.current = null
+    }
+  }, [stage])
+
   const act = (target: Target) => {
     const result = interact(state, target)
     setState(result.state)
     setMessage(result.message)
     setEffect((e) => ({ kind: result.effect, n: (e?.n ?? 0) + 1 }))
     if (result.effect === 'eat') later(1400, () => setEffect(null))
+    if (result.effect === 'escape') {
+      // Erst gehen die Türen auf, dann geht es hinaus.
+      later(1100, () => setDark(true))
+      later(1600, () => {
+        setStage('outro')
+        later(60, () => setDark(false))
+      })
+    }
     navigator.vibrate?.(result.effect === 'blocked' || result.effect === 'meow' ? 40 : 15)
   }
 
@@ -341,6 +394,7 @@ export default function ChimneyGame({ savedState, saveState, completedBefore, on
     setState(restoreRoom(undefined))
     setMessage(null)
     setEffect(null)
+    setFinished(false)
     setStage('intro')
   }
 
@@ -350,16 +404,18 @@ export default function ChimneyGame({ savedState, saveState, completedBefore, on
   return (
     <div className="chimney">
       <div className="chimney__view" data-dark={dark}>
-        {stage === 'intro' ? (
+        {stage !== 'room' ? (
           <>
-            <canvas ref={canvas} className="chimney__canvas" />
-            <button type="button" className="chimney__skip" onClick={() => intro.current?.skip()}>
-              Überspringen ›
-            </button>
+            <canvas key={stage} ref={canvas} className="chimney__canvas" />
+            {!(stage === 'outro' && finished) && (
+              <button type="button" className="chimney__skip" onClick={() => (stage === 'intro' ? intro.current : outro.current)?.skip()}>
+                Überspringen ›
+              </button>
+            )}
           </>
         ) : (
           <>
-            <Room state={state} effect={effect} onAct={act} />
+            <Room state={state} effect={effect} selfie={selfie} onAct={act} />
             <div className="chimney__bag" aria-label="Eingepackt">
               {(['cookies', 'treats', 'wine'] as const).map((item) => (
                 <span key={item} data-has={state.items.includes(item)} title={ITEM_LABEL[item]}>
@@ -373,7 +429,7 @@ export default function ChimneyGame({ savedState, saveState, completedBefore, on
       </div>
 
       <p className="chimney__status" role="status" data-tone={state.escaped ? 'done' : effect?.kind === 'blocked' || effect?.kind === 'meow' ? 'hint' : undefined}>
-        {stage === 'intro' ? 'Hinauf aufs Dach …' : status}
+        {stage === 'intro' ? 'Hinauf aufs Dach …' : stage === 'outro' && !finished ? 'Hinaus auf den Balkon …' : status}
       </p>
 
       {stage === 'room' && (
@@ -384,7 +440,7 @@ export default function ChimneyGame({ savedState, saveState, completedBefore, on
         </ol>
       )}
 
-      {state.escaped && (
+      {state.escaped && finished && (
         <div className="chimney__actions">
           <button type="button" className="button" onClick={onComplete}>
             {completedBefore ? 'Überraschung noch einmal ansehen' : 'Überraschung öffnen'}

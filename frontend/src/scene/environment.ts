@@ -3,7 +3,9 @@ import { SKI_HOUSE_DAY } from '../lib/places.ts'
 import { createRandom, hashSeed } from '../lib/rng.ts'
 import type { Random } from '../lib/rng.ts'
 import { Builder } from './batch.ts'
+import { GARAGE_AFTER_DAY } from './houseSpec.ts'
 import type { StreetLayout } from './houseSpec.ts'
+import { addGarage } from './garage.ts'
 import { createGlowMaterial } from './materials.ts'
 import type { TimeUniform } from './materials.ts'
 import { BERRY, BULB_COLORS, GOLD, IRON, PINE, SNOW, WOOD, WOOD_DARK, col } from './palette.ts'
@@ -84,7 +86,9 @@ function addLanterns(builders: Builders, layout: StreetLayout): void {
   for (let i = 1; i < plots.length - 1; i += 2) {
     const gapStart = plots[i].x + plots[i].spec.width / 2
     const gapEnd = plots[i + 1].x - plots[i + 1].spec.width / 2
-    addStreetLantern(builders, (gapStart + gapEnd) / 2, STREET_LANTERN_Z)
+    // Vor der Garageneinfahrt steht die Laterne am Rand, nicht mitten in der Einfahrt.
+    const x = plots[i].spec.day === GARAGE_AFTER_DAY ? gapEnd - 0.35 : (gapStart + gapEnd) / 2
+    addStreetLantern(builders, x, STREET_LANTERN_Z)
   }
   // Rund um den Platz – aber nicht direkt vor dem Baum
   for (const degrees of [20, 160, 200, 250, 290, 340]) {
@@ -228,7 +232,9 @@ function createForest(layout: StreetLayout, material: THREE.Material, rnd: Rando
     const b = layout.plots[i + 1]
     if (rnd.chance(0.65)) {
       const x = (a.x + a.spec.width / 2 + b.x - b.spec.width / 2) / 2
-      trees.push({ x, z: -2.6 - rnd.range(0, 1.2), height: rnd.range(3, 4.8), afterHouse: a.spec.day })
+      const tree = { x, z: -2.6 - rnd.range(0, 1.2), height: rnd.range(3, 4.8), afterHouse: a.spec.day }
+      // In der Garageneinfahrt wächst kein Baum – gezogen wird trotzdem, damit der Wald gleich bleibt.
+      if (a.spec.day !== GARAGE_AFTER_DAY) trees.push(tree)
     }
   }
   // Am Anfang der Straße und hinter dem Platz schließt der Wald die Straße ab
@@ -323,6 +329,7 @@ export function createEnvironment(
   addLanterns(ground, layout)
   addAvenue(ground, layout)
   addEntrance(ground, layout)
+  addGarage(ground, layout.garage.x)
   addChristmasTree(ground, treeLights, layout)
 
   const glowMaterial = createGlowMaterial(time)

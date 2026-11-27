@@ -33,6 +33,14 @@ const LIGHTS_DAY = 9
 const FIREWOOD_DAY = 10
 /** Santa Bibber: Danach fliegt der Weihnachtsmann bei jedem Blick zum Baum vorbei. */
 const SANTA_DAY = 11
+/** Durch den Schornstein: Danach sitzt die Katze auf dem Balkon von Haus 12. */
+const CHIMNEY_DAY = 12
+/** Glühwein-Fieber: Danach steht der Glühweinstand auf dem Gehweg vor Haus 13. */
+const GLUEHWEIN_DAY = 13
+/** Weihnachtskugelball: Danach lässt sich auf der Straße der Korb antippen – die Scherben bleiben liegen. */
+const HOOP_DAY = 14
+/** Plätzchen-Hüpfer: Danach hüpft Santa hinter den oberen Fenstern von Haus 15. */
+const JUMP_DAY = 15
 
 const sceneModule = import('../scene/StreetScene.ts')
 
@@ -73,8 +81,14 @@ function syncScene(scene: StreetScene): () => void {
       )
       scene.setSkiHalfpipe(houseStatus(state, SKI_HOUSE_DAY) === 'completed')
       scene.setLightChain(houseStatus(state, LIGHTS_DAY) === 'completed' ? LIGHTS_DAY : null, LAMP_COLORS)
+      scene.setGluehweinStand(houseStatus(state, GLUEHWEIN_DAY) === 'completed' ? GLUEHWEIN_DAY : null)
+      // Den Korb schraubt erst das Spiel von Haus 14 an: Er hängt, sobald das Haus aufgeschlossen ist.
+      scene.setGarageHoop(['unlocked', 'completed'].includes(houseStatus(state, HOOP_DAY)))
+      scene.setHoopShot(houseStatus(state, HOOP_DAY) === 'completed')
+      scene.setSantaWindows(houseStatus(state, JUMP_DAY) === 'completed' ? JUMP_DAY : null)
       scene.setFireplace(houseStatus(state, FIREWOOD_DAY) === 'completed' ? FIREWOOD_DAY : null)
       scene.setSantaFlyby(houseStatus(state, SANTA_DAY) === 'completed')
+      scene.setBalconyCat(houseStatus(state, CHIMNEY_DAY) === 'completed' ? CHIMNEY_DAY : null)
     }
     if (state.selfies !== previous?.selfies) {
       for (let day = 1; day <= TOTAL_DAYS; day++) scene.setSelfie(day, state.selfies[day] ?? null)

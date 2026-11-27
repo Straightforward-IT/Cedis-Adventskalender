@@ -66,6 +66,20 @@ const games: Partial<Record<number, MinigameDefinition>> = {
     layout: 'wide',
     load: () => import('./games/chimney/ChimneyGame.tsx'),
   },
+  13: {
+    title: 'Glühwein-Fieber',
+    layout: 'wide',
+    load: () => import('./games/gluehwein/GluehweinGame.tsx'),
+  },
+  14: {
+    title: 'Weihnachtskugelball',
+    layout: 'wide',
+    load: () => import('./games/baubleball/BaubleballGame.tsx'),
+  },
+  15: {
+    title: 'Plätzchen-Hüpfer',
+    load: () => import('./games/cookiejump/CookieJumpGame.tsx'),
+  },
   [SKI_HOUSE_DAY]: {
     title: 'Wichtel auf Skiern',
     layout: 'outdoor',

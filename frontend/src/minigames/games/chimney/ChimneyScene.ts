@@ -1,6 +1,5 @@
 import * as THREE from 'three'
-import { buildStreetBackdropWithHome } from '../../../scene/streetBackdrop.ts'
-import { createMoonTexture } from '../../../scene/textures.ts'
+import { createNightStreet, disposeScene } from './nightStreet.ts'
 
 export type ChimneyCue = 'dark' | 'done'
 
@@ -22,19 +21,6 @@ const easeIn = (t: number) => t * t * t
 const clamp01 = (t: number) => Math.min(1, Math.max(0, t))
 const phase = (t: number, from: number, to: number) => clamp01((t - from) / (to - from))
 
-function starField(count: number, radius: number): THREE.Points {
-  const positions: number[] = []
-  for (let i = 0; i < count; i++) {
-    const y = 0.15 + Math.random() * 0.85
-    const a = Math.random() * Math.PI * 2
-    const ring = Math.sqrt(1 - y * y)
-    positions.push(Math.cos(a) * ring * radius, y * radius, Math.sin(a) * ring * radius)
-  }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
-  return new THREE.Points(geometry, new THREE.PointsMaterial({ color: '#fff8e6', size: 1.5, sizeAttenuation: false, fog: false }))
-}
-
 export interface ChimneyCallbacks {
   onCue(cue: ChimneyCue): void
 }
@@ -45,7 +31,7 @@ export interface ChimneyCallbacks {
  */
 export class ChimneyScene {
   private readonly renderer: THREE.WebGLRenderer
-  private readonly scene = new THREE.Scene()
+  private readonly scene: THREE.Scene
   private readonly camera = new THREE.PerspectiveCamera(48, 1, 0.05, 500)
   private readonly canvas: HTMLCanvasElement
   private readonly callbacks: ChimneyCallbacks
@@ -68,21 +54,8 @@ export class ChimneyScene {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
     this.renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1))
 
-    const scene = this.scene
-    scene.background = new THREE.Color('#2a2e62')
-    scene.fog = new THREE.Fog('#2a2e62', 30, 150)
-    scene.add(new THREE.HemisphereLight('#b9c6ff', '#f6dccb', 2.2))
-    const moonlight = new THREE.DirectionalLight('#dfe5ff', 1.4)
-    moonlight.position.set(-0.4, 0.8, 0.9)
-    scene.add(moonlight)
-    scene.add(starField(420, 160))
-    const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: createMoonTexture(0.5), fog: false, depthWrite: false }))
-    moon.position.set(30, 45, -80)
-    moon.scale.setScalar(22)
-    scene.add(moon)
-
-    const { group, home } = buildStreetBackdropWithHome(HOUSE_DAY, this.time)
-    scene.add(group)
+    const { scene, home } = createNightStreet(HOUSE_DAY, this.time)
+    this.scene = scene
     // Der Schornstein von Haus 12 – Haus 12 steht im Ursprung.
     this.chimney = (home.smoke ?? new THREE.Vector3(0.7, home.height, -2)).clone()
 
@@ -124,21 +97,7 @@ export class ChimneyScene {
     this.disposed = true
     cancelAnimationFrame(this.frame)
     this.observer.disconnect()
-    const seen = new Set<unknown>()
-    this.scene.traverse((object) => {
-      const mesh = object as THREE.Mesh
-      if (mesh.geometry && !seen.has(mesh.geometry)) {
-        seen.add(mesh.geometry)
-        mesh.geometry.dispose()
-      }
-      const materials = mesh.material ? (Array.isArray(mesh.material) ? mesh.material : [mesh.material]) : []
-      for (const material of materials) {
-        if (seen.has(material)) continue
-        seen.add(material)
-        ;(material as THREE.MeshBasicMaterial).map?.dispose()
-        material.dispose()
-      }
-    })
+    disposeScene(this.scene)
     this.renderer.dispose()
   }
 

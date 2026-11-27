@@ -1,0 +1,299 @@
+/* Glühwein-Fieber: Ausschank am Stand vor Haus 13. */
+
+.gluehwein {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: center;
+}
+
+.gluehwein__view {
+  position: relative;
+  width: 100%;
+  max-width: 760px;
+  aspect-ratio: 4 / 3;
+  max-height: 58vh;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #2a2e62;
+  box-shadow: 0 10px 26px rgb(10 10 30 / 0.35);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.gluehwein__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Sprechblasen über den Gästen – die Szene schiebt sie Bild für Bild an ihren Platz. */
+.gluehwein__bubbles {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gluehwein__bubble {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  max-width: 34%;
+  padding: 5px 10px 6px;
+  border: 0;
+  border-radius: 14px;
+  background: #fff8ec;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 0.3);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  line-height: 1.1;
+  cursor: pointer;
+  pointer-events: auto;
+  visibility: hidden;
+  opacity: 0.55;
+  transition: opacity 0.2s ease;
+}
+
+.gluehwein__bubble::after {
+  content: '';
+  position: absolute;
+  bottom: -7px;
+  left: 50%;
+  border: 7px solid transparent;
+  border-bottom: 0;
+  border-top-color: #fff8ec;
+  transform: translateX(-50%);
+}
+
+.gluehwein__bubble[data-waiting='true'] {
+  opacity: 1;
+  animation: gluehwein-pop 0.3s ease-out;
+}
+
+.gluehwein__bubble-icons {
+  font-size: 1.25rem;
+}
+
+.gluehwein__bubble-text {
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+@keyframes gluehwein-pop {
+  0% { scale: 0.5; }
+  70% { scale: 1.12; }
+  100% { scale: 1; }
+}
+
+.gluehwein__score {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 10px;
+  border-radius: 999px;
+  background: rgb(255 246 230 / 0.92);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
+.gluehwein__count {
+  display: inline-block;
+  font-weight: 700;
+  animation: gluehwein-bump 0.35s ease-out;
+}
+
+.gluehwein__goal {
+  color: var(--cocoa-soft);
+  font-size: 0.95rem;
+}
+
+@keyframes gluehwein-bump {
+  0% { transform: scale(1.7); color: var(--berry); }
+  100% { transform: scale(1); }
+}
+
+.gluehwein__skip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(10 12 30 / 0.55);
+  color: #fff;
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+
+.gluehwein__hint {
+  min-height: 2.6em;
+  max-width: 640px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  color: var(--cocoa);
+  animation: gluehwein-fade 0.25s ease-out;
+}
+
+.gluehwein__hint[data-tone='good'] {
+  color: var(--pine);
+}
+
+.gluehwein__hint[data-tone='bad'] {
+  color: var(--berry);
+}
+
+@keyframes gluehwein-fade {
+  from { opacity: 0.2; transform: translateY(3px); }
+}
+
+/* Bedienleiste: Becher und Zutaten */
+.gluehwein__bar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 760px;
+}
+
+.gluehwein__cups {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gluehwein__cup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-height: 74px;
+  padding: 6px 6px 8px;
+  border: 3px solid transparent;
+  border-radius: 14px;
+  background: var(--paper, #fff8ec);
+  box-shadow: 0 2px 8px rgb(60 30 20 / 0.14);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+
+.gluehwein__cup[data-empty='true'] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.gluehwein__cup[data-selected='true'] {
+  border-color: var(--gold, #f2c14e);
+  box-shadow: 0 0 0 3px rgb(242 193 78 / 0.35), 0 2px 8px rgb(60 30 20 / 0.14);
+}
+
+.gluehwein__cup[data-cold='true'] {
+  background: #e6f0ff;
+}
+
+.gluehwein__cup-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.gluehwein__cup-name {
+  font-size: 0.78rem;
+  line-height: 1.15;
+}
+
+.gluehwein__meter {
+  width: 80%;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgb(60 30 20 / 0.12);
+}
+
+.gluehwein__meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.gluehwein__meter span[data-kind='fill'] {
+  background: #b8683c;
+}
+
+.gluehwein__meter span[data-kind='heat'] {
+  background: linear-gradient(90deg, #6fa8ff, #ffb347 45%, #e2453c);
+  background-size: 125% 100%;
+}
+
+.gluehwein__actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gluehwein__action {
+  position: relative;
+  overflow: hidden;
+  min-height: 44px;
+  padding: 8px 6px;
+  border: 0;
+  border-radius: 12px;
+  background: #fff3e1;
+  box-shadow: 0 2px 6px rgb(60 30 20 / 0.14);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.gluehwein__action:active {
+  transform: translateY(1px);
+}
+
+.gluehwein__action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.gluehwein__action--pour {
+  background: #7e2433;
+  color: #fff4e6;
+}
+
+.gluehwein__action--pour + .gluehwein__action--pour {
+  background: #6b3e26;
+}
+
+.gluehwein__busy {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: #ffd27a;
+}
+
+@media (min-width: 640px) {
+  .gluehwein__actions {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gluehwein__count,
+  .gluehwein__bubble[data-waiting='true'],
+  .gluehwein__hint {
+    animation: none;
+  }
+}

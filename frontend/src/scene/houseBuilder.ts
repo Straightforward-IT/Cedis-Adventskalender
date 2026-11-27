@@ -56,9 +56,10 @@ const CHIMNEY_BRICK = '#9c5c4b'
 const ADVENT_WREATHS = new Set([6, 13, 20])
 /**
  * Schaufenster: In diesem Stockwerk bleiben die Fenster ohne Deko und immer hell –
- * dahinter fährt nach dem Lösen ein Förderband mit Kuchen (Haus 1, Weihnachtsbäckerei).
+ * dahinter fährt nach dem Lösen ein Förderband mit Kuchen (Haus 1, Weihnachtsbäckerei)
+ * oder hüpft ein kleiner Santa von Keks zu Keks (Haus 15, oberstes Stockwerk).
  */
-const SHOWCASE_FLOORS: Partial<Record<number, number>> = { 1: 1 }
+const SHOWCASE_FLOORS: Partial<Record<number, number | 'top'>> = { 1: 1, 15: 'top' }
 /**
  * Kaminfenster: oberstes Stockwerk, rechte Fensterachse – immer hell und ohne Deko.
  * Dahinter sitzt nach dem Holzhacken (Haus 10) ein Wichtel am Kamin.
@@ -675,7 +676,8 @@ class HouseBuilder {
         const x = columnX(spec, column)
         const hearth = HEARTH_HOUSES.has(spec.day) && floor === spec.floors - 1 && column === spec.columns - 1
         const balcony = BALCONY_HOUSES.has(spec.day) && floor === 1 && column === spec.columns - 1
-        const showcase = SHOWCASE_FLOORS[spec.day] === floor
+        const showcaseFloor = SHOWCASE_FLOORS[spec.day]
+        const showcase = showcaseFloor === floor || (showcaseFloor === 'top' && floor === spec.floors - 1)
         const lit = rnd.chance(0.82) || showcase || hearth || balcony
         if (balcony) {
           // Die Balkontür reicht fast bis zum Boden des Geschosses.

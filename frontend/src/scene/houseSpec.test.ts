@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
+  GARAGE_AFTER_DAY,
+  GARAGE_GAP,
   STREET_SEED,
   createStreetLayout,
   generateStreet,
@@ -69,6 +71,12 @@ describe('createStreetLayout', () => {
       const left = layout.plots[i - 1]
       const right = layout.plots[i]
       const gap = right.x - right.spec.width / 2 - (left.x + left.spec.width / 2)
+      if (left.spec.day === GARAGE_AFTER_DAY) {
+        // Hier liegt die Einfahrt mit der Garage.
+        expect(gap).toBeCloseTo(GARAGE_GAP, 5)
+        expect(layout.garage.x).toBeCloseTo(left.x + left.spec.width / 2 + GARAGE_GAP / 2, 1)
+        continue
+      }
       expect(gap).toBeGreaterThan(0.4)
       expect(gap).toBeLessThan(1.05)
     }
