@@ -1,0 +1,13 @@
+// Cloudflare Worker, der das gebaute Frontend (dist/) ausliefert.
+// Cloudflare baut aus dem GitHub-Repository: Stammverzeichnis „frontend“,
+// Build „npm run build“, Bereitstellung „npx wrangler deploy“.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cedis-adventskalender",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "./dist",
+    // Eine Single-Page-App: unbekannte Pfade (z. B. /tuer/5) liefern index.html.
+    "not_found_handling": "single-page-application"
+  }
+}
