@@ -129,9 +129,9 @@ interface Inspectable {
 
 /** Eichhörnchen auf der Straße: kleiner als im Spiel, etwa einen Meter hoch. */
 const CRITTER_SCALE = 0.75
-/** Die Wiese gegenüber: zwischen dem Bordstein der Fahrbahn (z = 8) und dem Parkzaun (z = 12,5). */
-const MEADOW_NEAR_Z = 8.9
-const MEADOW_FAR_Z = 11.8
+/** Die Wiese gegenüber: im Park hinter dem Zaun (z = 12,5) – die Rentiere laufen nicht auf den Gehweg. */
+const MEADOW_NEAR_Z = 13.5
+const MEADOW_FAR_Z = 16.5
 /**
  * Lichterketten-Auftritt: Wartezeit, bis der Blick beim Baum ist, und Takt von Haus zu Haus –
  * er beginnt mit `REVEAL_STEP` Sekunden und wird mit jedem Haus um `REVEAL_SPEEDUP` schneller.
@@ -1681,6 +1681,23 @@ export class StreetScene {
         },
       })
     }
+    const herd = this.meadowHerd
+    if (herd?.group.visible) {
+      herd.deer.forEach((deer, index) => {
+        list.push({
+          id: `meadow-reindeer-${index}`,
+          label: index === 0 ? 'Rudolph auf der Wiese' : 'Rentier aus dem Wimmelbild',
+          object: deer,
+          // Die Rentiere laufen weiter herum – die Kamera folgt ihnen von der Straße aus.
+          view: (out) => {
+            const target = world(deer, 0.15, 1.1, 0)
+            out.target.copy(target)
+            out.position.set(target.x - 1.2, target.y + 0.5, target.z - 4.4)
+            out.fov = 38
+          },
+        })
+      })
+    }
     if (this.moonSnowman) {
       const moon = this.sky.moon
       list.push({
@@ -1729,6 +1746,7 @@ export class StreetScene {
   }
 
   private startInspecting(item: Inspectable): void {
+    this.holdMeadowReindeer(item)
     this.inspecting = item
     this.inspectOpen = true
     this.escapeDrag = 0
@@ -1743,6 +1761,7 @@ export class StreetScene {
   stopInspecting(): void {
     if (!this.inspectOpen) return
     this.inspectOpen = false
+    this.holdMeadowReindeer(null)
     const leaving = this.inspecting
     void this.inspectBlend.animate(0, 0.9, easeInOut).then(() => {
       if (!this.inspectOpen && this.inspecting === leaving) this.inspecting = null
@@ -1886,13 +1905,14 @@ export class StreetScene {
     const plot = day === null ? undefined : this.layout.plots.find((p) => p.spec.day === day)
     if (!plot) {
       if (this.meadowHerd) this.meadowHerd.group.visible = false
+      if (this.inspecting?.id.startsWith('meadow-reindeer')) this.stopInspecting()
       return
     }
     if (!this.meadowHerd) {
       // Etwas voraus: Wer vor Haus 16 zum Baum schaut, sieht sie rechts auf der Wiese grasen.
-      const maxX = Math.min(plot.x + 24, this.layout.gateX - 3)
+      const maxX = Math.min(plot.x + 40, this.layout.gateX - 3)
       this.meadowHerd = createMeadowHerd(this.solidMaterial, this.time, {
-        minX: Math.max(plot.x + 4, this.layout.cameraMinX),
+        minX: Math.max(plot.x + 14, this.layout.cameraMinX),
         maxX,
         minZ: MEADOW_NEAR_Z,
         maxZ: MEADOW_FAR_Z,
@@ -1901,6 +1921,12 @@ export class StreetScene {
       this.scene.add(this.meadowHerd.group)
     }
     this.meadowHerd.group.visible = true
+  }
+
+  /** Das betrachtete Rentier der Herde bleibt stehen und schaut zur Kamera. */
+  private holdMeadowReindeer(item: Inspectable | null): void {
+    const prefix = 'meadow-reindeer-'
+    this.meadowHerd?.hold(item?.id.startsWith(prefix) ? Number(item.id.slice(prefix.length)) : null)
   }
 
   /** Setzt das Rentier mittig in den Giebel von Haus `day` – oder nimmt es mit null wieder weg. */

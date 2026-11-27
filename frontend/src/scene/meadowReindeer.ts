@@ -121,6 +121,10 @@ export interface MeadowArea {
 
 export interface MeadowHerd {
   group: THREE.Group
+  /** Die einzelnen Rentiere – das erste ist Rudolph. */
+  deer: THREE.Group[]
+  /** Dieses Rentier bleibt stehen und schaut zur Straße, solange man es betrachtet (null: alle frei). */
+  hold(index: number | null): void
   update(dt: number): void
   dispose(): void
 }
@@ -132,6 +136,10 @@ export function createMeadowHerd(solidMaterial: THREE.Material, time: TimeUnifor
   const plainHead = buildHead(false)
   const rudolphHead = buildHead(true)
   const haloMaterial = createGlowMaterial(time, { halo: true })
+  // Unsichtbare, etwas größere Trefferfläche: Aus der Ferne sind die Rentiere nur ein paar Pixel groß.
+  const hitGeometry = new THREE.BoxGeometry(1.9, 2.3, 1.1)
+  hitGeometry.translate(0.15, 1.1, 0)
+  const hitMaterial = new THREE.MeshBasicMaterial({ visible: false })
   const randomSpot = (out: THREE.Vector2) =>
     out.set(THREE.MathUtils.lerp(area.minX, area.maxX, Math.random()), THREE.MathUtils.lerp(area.minZ, area.maxZ, Math.random()))
 
@@ -150,8 +158,9 @@ export function createMeadowHerd(solidMaterial: THREE.Material, time: TimeUnifor
     head.add(new THREE.Mesh(geometry.solid, solidMaterial))
     if (geometry.halo) head.add(new THREE.Mesh(geometry.halo, haloMaterial))
     root.add(head)
+    root.add(new THREE.Mesh(hitGeometry, hitMaterial))
     // Rudolph ist ein bisschen kleiner als die anderen.
-    root.scale.setScalar(i === 0 ? 0.8 : 0.86 + Math.random() * 0.1)
+    root.scale.setScalar(i === 0 ? 0.92 : 1 + Math.random() * 0.1)
     const start = randomSpot(new THREE.Vector2())
     root.position.set(start.x, 0, start.y)
     const heading = Math.random() * Math.PI * 2
@@ -172,11 +181,21 @@ export function createMeadowHerd(solidMaterial: THREE.Material, time: TimeUnifor
   })
 
   const toTarget = new THREE.Vector2()
+  let held: number | null = null
+  /** Schräg zur Straße (−z) – so sieht man Gesicht und Geweih. */
+  const POSE_HEADING = Math.PI / 2 - 0.65
 
   function update(dt: number): void {
-    for (const deer of herd) {
+    herd.forEach((deer, index) => {
       let pitchGoal = 0
-      if (deer.mood === 'walk') {
+      if (index === held) {
+        deer.mood = 'look'
+        deer.left = 2
+        let turn = POSE_HEADING - deer.heading
+        turn = Math.atan2(Math.sin(turn), Math.cos(turn))
+        deer.heading += THREE.MathUtils.clamp(turn, -2.5 * dt, 2.5 * dt)
+        deer.stride += Math.abs(turn) > 0.05 ? dt * 3 : 0
+      } else if (deer.mood === 'walk') {
         toTarget.set(deer.target.x - deer.root.position.x, deer.target.y - deer.root.position.z)
         const distance = toTarget.length()
         if (distance < 0.15) {
@@ -215,15 +234,20 @@ export function createMeadowHerd(solidMaterial: THREE.Material, time: TimeUnifor
         mesh.rotation.z += (swing - mesh.rotation.z) * Math.min(1, dt * 12)
       })
       deer.root.position.y = walking ? Math.abs(Math.sin(deer.stride)) * 0.03 : 0
-    }
+    })
   }
 
   return {
     group,
+    deer: herd.map((deer) => deer.root),
+    hold(index) {
+      held = index
+    },
     update,
     dispose() {
-      for (const geometry of [body, leg, plainHead.solid, rudolphHead.solid, rudolphHead.halo]) geometry?.dispose()
+      for (const geometry of [body, leg, plainHead.solid, rudolphHead.solid, rudolphHead.halo, hitGeometry]) geometry?.dispose()
       haloMaterial.dispose()
+      hitMaterial.dispose()
     },
   }
 }
