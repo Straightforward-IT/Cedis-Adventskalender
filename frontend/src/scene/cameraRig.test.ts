@@ -159,6 +159,25 @@ describe('Anflug auf die Haustür', () => {
 })
 
 describe('Blick durch die Häuserlücke', () => {
+  it('fährt ohne Laterne vor der Lücke ohne Schlenker auf die Lückenmitte zu', () => {
+    const gap = createPose()
+    gap.position.set(53.39, 1.5, -1.7)
+    gap.target.set(53.07, 1.2, -4.4)
+    for (const startX of [49.3, 56.1]) {
+      let previous = startX
+      for (let i = 1; i <= 40; i++) {
+        const view = createPose()
+        view.position.set(startX, 5.5, ROAD_CENTER_Z)
+        view.target.set(startX, 4.5, 0)
+        approachThroughGap(view, gap, i / 40, false)
+        // Immer nur in eine Richtung zur Lücke hin – nie darüber hinaus und zurück.
+        expect(Math.sign(view.position.x - previous) * Math.sign(gap.position.x - startX)).toBeGreaterThanOrEqual(0)
+        expect(Math.abs(view.position.x - gap.position.x)).toBeLessThanOrEqual(Math.abs(startX - gap.position.x) + 1e-9)
+        previous = view.position.x
+      }
+    }
+  })
+
   it('fährt von beiden Seiten an der Laterne vorbei und erreicht die Lücke mittig auf Augenhöhe', () => {
     const gap = createPose()
     gap.position.set(47.035, 1.59, -3.08)
@@ -173,10 +192,13 @@ describe('Blick durch die Häuserlücke', () => {
           return view
         }
         expect(Math.abs(atZ(STREET_LANTERN_Z).position.x - gap.position.x)).toBeGreaterThan(0.63)
-        const atWall = atZ(0)
-        expect(atWall.position.x).toBeCloseTo(gap.position.x)
-        expect(atWall.position.y).toBeCloseTo(gap.position.y)
-        expect(atWall.target.distanceTo(gap.target)).toBeCloseTo(0)
+        // Schon vor den Fassaden mittig und geradeaus in die Lücke – nicht schräg auf eine Wand zu.
+        for (const z of [1.2, 0.6, 0]) {
+          const view = atZ(z)
+          expect(view.position.x).toBeCloseTo(gap.position.x)
+          expect(Math.abs(view.target.x - view.position.x)).toBeLessThan(0.05)
+        }
+        expect(atZ(0).position.y).toBeCloseTo(gap.position.y)
         expect(atZ(gap.position.z).position.distanceTo(gap.position)).toBeCloseTo(0)
       }
     }

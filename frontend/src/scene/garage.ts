@@ -243,7 +243,7 @@ function addDecoration(b: Builders): void {
 
   // Lampe über dem Tor-Eck und ein Stern im Giebel
   solid.box(-1.55, 2.1, front + 0.08, 0.12, 0.2, 0.12, col(WOOD_DARK))
-  addBulb(b, -1.55, 2.0, front + 0.16, warm, 0.06, 0.1)
+  addBulb(b, -1.55, 2.0, front + 0.16, warm, 0.06, 0.1, false)
   solid.star(0, ridge - 0.32, front + 0.02, 0.18, 0.08, 5, col(GOLD))
 }
 

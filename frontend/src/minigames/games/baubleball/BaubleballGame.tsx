@@ -4,18 +4,8 @@ import type { MinigameProps } from '../../types.ts'
 import { BaubleballScene } from './BaubleballScene.ts'
 import type { Stage } from './BaubleballScene.ts'
 import { GOAL, meter, restore, simulate, SPOTS, sweetZone } from './model.ts'
-import type { Flight, Hit } from './model.ts'
+import type { Flight } from './model.ts'
 import './baubleball.css'
-
-type Tone = 'info' | 'good' | 'bad'
-
-const HIT_TEXT: Record<Hit, string> = {
-  rim: 'an den Ring',
-  board: 'ans Brett',
-  wall: 'an die Garage',
-  house: 'an die Hauswand',
-  ground: 'auf die Straße',
-}
 
 export default function BaubleballGame({ savedState, saveState, completedBefore, onComplete }: MinigameProps) {
   const canvas = useRef<HTMLCanvasElement>(null)
@@ -24,46 +14,32 @@ export default function BaubleballGame({ savedState, saveState, completedBefore,
   const [stage, setStage] = useState<Stage>(start.scored > 0 ? 'play' : 'intro')
   const [scored, setScored] = useState(start.scored)
   const [shattered, setShattered] = useState(start.shattered)
-  const [message, setMessage] = useState<{ text: string; tone: Tone; key: number } | null>(null)
   const [holding, setHolding] = useState(false)
   const counts = useRef({ ...start })
   const hold = useRef<{ id: number; since: number; frame: number } | null>(null)
-  const lastPower = useRef(0)
   const needle = useRef<HTMLDivElement>(null)
 
   const spot = SPOTS[Math.min(scored, SPOTS.length - 1)]
   const zone = useMemo(() => sweetZone(spot), [spot])
-  const zoneRef = useRef(zone)
-  zoneRef.current = zone
-
-  const say = (text: string, tone: Tone = 'info') => setMessage((m) => ({ text, tone, key: (m?.key ?? 0) + 1 }))
 
   useEffect(() => {
     if (!canvas.current) return
     const instance = new BaubleballScene(canvas.current, {
       onStage: setStage,
-      onScore: () => say('Swish! Sauber durch den Ring … 🎄', 'good'),
+      onScore: () => {},
       onLanded: (flight: Flight) => {
         const c = counts.current
         if (flight.scored) {
           c.scored = Math.min(GOAL, c.scored + 1)
           setScored(c.scored)
           saveState({ ...c })
-          if (c.scored >= GOAL) {
-            instance.finish()
-          } else {
-            say(`Treffer ${c.scored} von ${GOAL}! Unten zerspringt sie in tausend Glitzer. Weiter zum nächsten Platz …`, 'good')
-            instance.goTo(c.scored)
-          }
+          if (c.scored >= GOAL) instance.finish()
+          else instance.goTo(c.scored)
           return
         }
         c.shattered++
         setShattered(c.shattered)
         saveState({ ...c })
-        const power = lastPower.current
-        const z = zoneRef.current
-        const why = power < z.from ? 'Zu wenig Kraft' : power > z.to ? 'Zu viel Kraft' : 'Knapp'
-        say(`Klirr! ${why} – die Kugel ist ${HIT_TEXT[flight.hit]} geknallt und zersprungen.`, 'bad')
       },
     }, start.scored, start.scored > 0)
     scene.current = instance
@@ -102,7 +78,6 @@ export default function BaubleballGame({ savedState, saveState, completedBefore,
     hold.current = null
     setHolding(false)
     const power = meter((performance.now() - state.since) / 1000)
-    lastPower.current = power
     if (needle.current) needle.current.style.bottom = `${power * 100}%`
     scene.current?.throw(simulate(spot, power))
   }
@@ -138,12 +113,6 @@ export default function BaubleballGame({ savedState, saveState, completedBefore,
   })
 
   const done = stage === 'done'
-  const status = done
-    ? `Alle ${GOAL} Kugeln versenkt – die Garage glitzert! ✨`
-    : message?.text
-      ?? (stage === 'intro'
-        ? 'Tock, tock, tock! Zwischen Haus 14 und 15 wird ein Korb an die Garage geschlagen …'
-        : `${spot.name}: Halte gedrückt, um Schwung zu holen – und lass im grünen Bereich los.`)
 
   return (
     <div className="baubleball" data-stage={stage}>
@@ -188,8 +157,6 @@ export default function BaubleballGame({ savedState, saveState, completedBefore,
           </button>
         )}
       </div>
-
-      <p className="baubleball__hint" role="status" data-tone={done ? 'good' : message?.tone ?? 'info'} key={message?.key}>{status}</p>
 
       {done && (
         <button type="button" className="button" onClick={onComplete}>

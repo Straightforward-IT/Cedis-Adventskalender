@@ -98,6 +98,30 @@
   font-size: 1.05rem;
 }
 
+/* Nach dem Lösen: was auf der Straße freigeschaltet wurde */
+.panel__unlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #fff1c9;
+  box-shadow: inset 0 0 0 2px rgb(242 193 78 / 0.55);
+  text-align: left;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.panel__unlock-icon {
+  flex: none;
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.panel__unlock p {
+  margin: 0;
+}
+
 .panel__text--busy {
   display: flex;
   align-items: center;

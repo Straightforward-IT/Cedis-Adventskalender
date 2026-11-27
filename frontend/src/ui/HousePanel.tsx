@@ -1,6 +1,7 @@
 import { formatDay, sleepsUntil } from '../lib/calendar.ts'
 import { isGate, placeTitle } from '../lib/places.ts'
-import { minigameFor } from '../minigames/registry.ts'
+import { unlockFor } from '../lib/unlocks.ts'
+import { hasMinigame, minigameFor } from '../minigames/registry.ts'
 import {
   closeHouse,
   enterHouse,
@@ -115,20 +116,30 @@ export function HousePanel() {
           <IconGate />
           Rätsel noch einmal spielen
         </button>
-        {selfieButton}
       </>
     )
   } else {
     const welcome = outdoor ? 'Das Spiel wartet hinter dem Haus.' : text.unlocked
     const revisit = outdoor ? 'Du kannst das Spiel noch einmal spielen.' : text.completed
+    const completed = status === 'completed'
+    // Nach dem Lösen: zeigen, was auf der Straße dazugekommen ist – ein Selfie gibt es dann nicht mehr.
+    const unlock = completed ? unlockFor(day) : null
     content = (
       <>
-        <p className="panel__text">{status === 'completed' ? revisit : welcome}</p>
+        {unlock && (
+          <div className="panel__unlock">
+            <span className="panel__unlock-icon" aria-hidden="true">{unlock.icon}</span>
+            <p>
+              <strong>Freigeschaltet:</strong> {unlock.text}
+            </p>
+          </div>
+        )}
+        <p className="panel__text">{completed ? revisit : welcome}</p>
         <button type="button" className="button" onClick={() => void enterHouse(day)}>
           {gate ? <IconGate /> : <IconDoor />}
           {outdoor ? 'Zum Spiel' : text.enter}
         </button>
-        {selfieButton}
+        {!completed && selfieButton}
       </>
     )
   }
@@ -142,7 +153,8 @@ export function HousePanel() {
         {day}
       </span>
       <h2>{placeTitle(day)}</h2>
-      <p className="panel__date">{formatDay(day)}</p>
+      {/* Statt des Datums der Name des Spiels – solange es noch keins gibt, das Datum. */}
+      <p className="panel__date">{hasMinigame(day) ? minigameFor(day).title : formatDay(day)}</p>
       {message && (
         <p className="panel__notice" data-tone={message.tone} role="alert">
           {message.text}

@@ -124,6 +124,48 @@ export function blow(snow: number[], strength: number, dt: number, random: () =>
   return removed
 }
 
+/** Schwamm: Radius in Zellen und wie viel Schnee ein Wisch in der Mitte mitnimmt. */
+export const SPONGE_RADIUS = 3.4
+export const SPONGE_DEPTH = 38
+
+/**
+ * Wischt mit dem Schwamm von `from` nach `to` (Anteile der Scheibe, 0–1) über den Schnee.
+ * In der Mitte des Schwamms am kräftigsten, zum Rand hin weich. Verändert `snow` direkt und
+ * gibt zurück, wie viel Schnee dabei abgewischt wurde. Ein paar Wische sind nötig, nicht einer.
+ */
+export function wipe(snow: number[], from: { x: number; y: number }, to: { x: number; y: number }): number {
+  // Entlang der Strecke in kleinen Schritten, damit schnelle Wische keine Lücken lassen.
+  const dx = (to.x - from.x) * COLS
+  const dy = (to.y - from.y) * ROWS
+  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy) / (SPONGE_RADIUS * 0.5)))
+  // Pro Zelle nur einmal je Wisch abtragen – sonst zählt ein Zittern auf der Stelle mehrfach.
+  const touched = new Map<number, number>()
+  for (let s = 0; s <= steps; s++) {
+    const cx = (from.x + (to.x - from.x) * (s / steps)) * COLS
+    const cy = (from.y + (to.y - from.y) * (s / steps)) * ROWS
+    const r = Math.ceil(SPONGE_RADIUS)
+    for (let row = Math.floor(cy) - r; row <= Math.floor(cy) + r; row++) {
+      if (row < 0 || row >= ROWS) continue
+      for (let col = Math.floor(cx) - r; col <= Math.floor(cx) + r; col++) {
+        if (col < 0 || col >= COLS) continue
+        const distance = Math.hypot(col + 0.5 - cx, row + 0.5 - cy) / SPONGE_RADIUS
+        if (distance >= 1) continue
+        const strength = 1 - distance * distance
+        const i = row * COLS + col
+        touched.set(i, Math.max(touched.get(i) ?? 0, strength))
+      }
+    }
+  }
+  let removed = 0
+  for (const [i, strength] of touched) {
+    if (snow[i] <= 0) continue
+    const loss = Math.min(snow[i], (SPONGE_DEPTH * strength) / TOUGHNESS[i])
+    snow[i] -= loss
+    removed += loss
+  }
+  return removed
+}
+
 /** Der letzte Rest weht ohne weiteres Zutun davon. */
 export function sweep(snow: number[], dt: number): void {
   for (let i = 0; i < snow.length; i++) snow[i] = Math.max(0, snow[i] - SWEEP_RATE * dt)

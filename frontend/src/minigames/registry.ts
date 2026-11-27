@@ -24,8 +24,8 @@ const games: Partial<Record<number, MinigameDefinition>> = {
     load: () => import('./games/reindeer/ReindeerGame.tsx'),
   },
   3: {
-    title: 'Eingeschneit!',
-    load: () => import('./games/snowwindow/SnowWindowGame.tsx'),
+    title: 'Lichterketten-Schlamassel',
+    load: () => import('./games/lights/LightsGame.tsx'),
   },
   4: {
     title: 'Malstunde',
@@ -48,8 +48,8 @@ const games: Partial<Record<number, MinigameDefinition>> = {
     load: () => import('./games/gingerbread/GingerbreadGame.tsx'),
   },
   9: {
-    title: 'Lichterketten-Schlamassel',
-    load: () => import('./games/lights/LightsGame.tsx'),
+    title: 'Eingeschneit!',
+    load: () => import('./games/snowwindow/SnowWindowGame.tsx'),
   },
   10: {
     title: 'Holz hacken',
@@ -80,8 +80,17 @@ const games: Partial<Record<number, MinigameDefinition>> = {
     title: 'Plätzchen-Hüpfer',
     load: () => import('./games/cookiejump/CookieJumpGame.tsx'),
   },
+  16: {
+    title: 'Rentiere gesucht!',
+    layout: 'wide',
+    load: () => import('./games/wimmel/WimmelGame.tsx'),
+  },
+  23: {
+    title: 'Geschenke-Tetris',
+    load: () => import('./games/tetris/TetrisGame.tsx'),
+  },
   [SKI_HOUSE_DAY]: {
-    title: 'Wichtel auf Skiern',
+    title: 'Pisten-Surfer',
     layout: 'outdoor',
     load: () => import('./games/ski/SkiGame.tsx'),
   },

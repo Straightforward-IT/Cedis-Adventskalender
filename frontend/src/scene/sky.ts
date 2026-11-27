@@ -56,6 +56,12 @@ export interface Sky {
   /** Der Himmel wandert mit der Kamera mit – er ist unerreichbar weit weg. */
   follow(camera: THREE.Camera, time: number): void
   setPixelRatio(ratio: number): void
+  /** Der große Stern über dem Ende der Straße – erst da, wenn die Lichter brennen (Haus 3). */
+  setChristmasStar(visible: boolean): void
+  /** Lässt den Stern mit einem Lichtblitz erscheinen – der krönende Abschluss des Lichter-Auftritts. */
+  flashChristmasStar(): void
+  /** Wie hell der Sternblitz die Szene gerade erleuchtet (0 = gar nicht, 1 = voller Blitz). */
+  flashLight(): number
   /** Mondphase: 0 = Neumond, 0,5 = Vollmond. */
   setMoonPhase(phase: number): void
   /** Steht der Mondstaub-Mann aus Haus 5 auf dem Mond? */
@@ -63,6 +69,44 @@ export interface Sky {
   /** Der Mond selbst – zum Antippen und Heranzoomen. */
   moon: THREE.Sprite
   dispose(): void
+}
+
+/** Strahlenkranz für den Sternblitz: lange, spitze Strahlen ohne runden Schein. */
+function createStarburstTexture(): THREE.CanvasTexture {
+  const size = 512
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')
+  if (ctx) {
+    ctx.translate(size / 2, size / 2)
+    const ray = (angle: number, length: number, width: number, alpha: number) => {
+      ctx.save()
+      ctx.rotate(angle)
+      const gradient = ctx.createLinearGradient(0, 0, length, 0)
+      gradient.addColorStop(0, `rgba(255, 250, 230, ${alpha})`)
+      gradient.addColorStop(1, 'rgba(255, 230, 170, 0)')
+      ctx.fillStyle = gradient
+      ctx.beginPath()
+      ctx.moveTo(0, -width)
+      ctx.quadraticCurveTo(length * 0.3, -width * 0.3, length, 0)
+      ctx.quadraticCurveTo(length * 0.3, width * 0.3, 0, width)
+      ctx.fill()
+      ctx.restore()
+    }
+    // Vier lange Hauptstrahlen, vier kürzere dazwischen, dazu feine Nebenstrahlen
+    for (let i = 0; i < 4; i++) ray((i * Math.PI) / 2, size / 2, 9, 1)
+    for (let i = 0; i < 4; i++) ray((i * Math.PI) / 2 + Math.PI / 4, size * 0.3, 6, 0.85)
+    for (let i = 0; i < 8; i++) ray((i * Math.PI) / 4 + Math.PI / 8, size * 0.17, 3, 0.6)
+    const core = ctx.createRadialGradient(0, 0, 0, 0, 0, 22)
+    core.addColorStop(0, 'rgba(255, 255, 245, 1)')
+    core.addColorStop(1, 'rgba(255, 245, 210, 0)')
+    ctx.fillStyle = core
+    ctx.fillRect(-22, -22, 44, 44)
+  }
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  return texture
 }
 
 /** Abendhimmel mit Farbverlauf, Sternen, Mond und einem großen Stern über dem Weihnachtsbaum. */
@@ -130,10 +174,23 @@ export function createSky(time: TimeUniform): Sky {
     moon.material.needsUpdate = true
   }
   const moon = sprite(createMoonTexture(moonPhase), new THREE.Vector3(-0.1, 0.168, -1), 36)
-  const christmasStar = sprite(createSparkleTexture(), new THREE.Vector3(1, 0.3, -0.1), 46)
+  const sparkle = createSparkleTexture()
+  const christmasStar = sprite(sparkle, new THREE.Vector3(1, 0.3, -0.1), 46)
+  // Der Lichtblitz beim Erscheinen: ein Strahlenkranz in Sternform, der aufblitzt und sich dreht.
+  const starburst = createStarburstTexture()
+  const burst = sprite(starburst, new THREE.Vector3(1, 0.3, -0.1), 1)
+  burst.material = new THREE.SpriteMaterial({
+    map: starburst, color: '#fff1c8', transparent: true, depthWrite: false, fog: false, blending: THREE.AdditiveBlending,
+  })
+  burst.renderOrder = -7
+  burst.visible = false
+  let starVisible = true
+  /** Sekunden seit dem Blitz, solange er läuft. */
+  let flash: number | null = null
+  let lastSeconds = 0
 
   const group = new THREE.Group()
-  group.add(dome, stars, moon, christmasStar)
+  group.add(dome, stars, moon, christmasStar, burst)
   for (const object of group.children) object.frustumCulled = false
 
   return {
@@ -141,7 +198,49 @@ export function createSky(time: TimeUniform): Sky {
     moon,
     follow(camera, seconds) {
       group.position.copy(camera.position)
-      christmasStar.scale.setScalar(46 * (1 + 0.07 * Math.sin(seconds * 1.3)))
+      const dt = Math.min(0.1, Math.max(0, seconds - lastSeconds))
+      lastSeconds = seconds
+      const pulse = 1 + 0.07 * Math.sin(seconds * 1.3)
+      christmasStar.visible = starVisible
+      if (flash === null) {
+        christmasStar.scale.setScalar(46 * pulse)
+        christmasStar.material.rotation = 0
+        return
+      }
+      flash += dt
+      const t = flash
+      // Stern: schießt in 0,3 s groß auf, federt dann auf seine Größe zurück und dreht sich dabei ein.
+      const pop = t < 0.3 ? 1 - (1 - t / 0.3) ** 3 : 1
+      const settle = t < 0.3 ? 0 : Math.min(1, (t - 0.3) / 1.4)
+      const overshoot = 2 - 1 * (1 - (1 - settle) ** 3) + Math.sin(settle * Math.PI * 3) * 0.12 * (1 - settle)
+      christmasStar.scale.setScalar(46 * pulse * pop * overshoot)
+      christmasStar.material.rotation = (1 - Math.min(1, t / 1.6)) ** 2 * 0.9
+      // Blitz: blüht in 0,25 s riesig auf und verglüht in gut einer Sekunde.
+      const bloom = Math.min(1, t / 0.25)
+      burst.visible = t < 1.5
+      burst.scale.setScalar(40 + 200 * (1 - (1 - bloom) ** 2) + t * 40)
+      burst.material.rotation = -0.5 + t * 0.6
+      burst.material.opacity = t < 0.25 ? bloom : Math.max(0, 1 - (t - 0.25) / 1.25) ** 1.5
+      if (t > 1.9) {
+        flash = null
+        burst.visible = false
+      }
+    },
+    setChristmasStar(visible) {
+      starVisible = visible
+      if (!visible) {
+        flash = null
+        burst.visible = false
+      }
+    },
+    flashChristmasStar() {
+      starVisible = true
+      flash = 0
+    },
+    flashLight() {
+      if (flash === null) return 0
+      // Schlagartig hell, dann in gut einer Sekunde wieder abklingen.
+      return flash < 0.12 ? flash / 0.12 : Math.max(0, 1 - (flash - 0.12) / 1.3) ** 2
     },
     setMoonPhase(phase) {
       // Auf ein Hundertstel gerundet – öfter muss nicht neu gemalt werden.
@@ -167,6 +266,8 @@ export function createSky(time: TimeUniform): Sky {
         item.material.map?.dispose()
         item.material.dispose()
       }
+      burst.material.dispose()
+      starburst.dispose()
     },
   }
 }

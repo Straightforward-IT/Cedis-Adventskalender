@@ -16,8 +16,10 @@ function bake(state: BakeryState, order: Recipe): BakeryState {
 describe('Weihnachtsbäckerei', () => {
   it('wohnt nur in Haus 1 und reserviert eine breite Bühne', () => {
     expect(hasMinigame(1)).toBe(true)
-    expect(hasMinigame(23)).toBe(false)
     expect(minigameFor(1).layout).toBe('wide')
+    // Die Bäckerei steckt in genau einem Haus – egal, welche Tage andere Spiele belegen.
+    const bakeries = Array.from({ length: 24 }, (_, i) => i + 1).filter((day) => minigameFor(day).title === minigameFor(1).title)
+    expect(bakeries).toEqual([1])
   })
 
   it('erzeugt fünf unterschiedliche, reproduzierbare Bestellungen mit allen Zutaten', () => {

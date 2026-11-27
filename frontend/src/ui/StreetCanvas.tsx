@@ -14,7 +14,7 @@ import type { AppState } from '../state/store.ts'
 // Die 3D-Szene (samt three.js) ist der dickste Brocken der App. Sie wird parallel
 // nachgeladen, damit Titel und Bedienelemente sofort erscheinen.
 /** Das Haus, aus dessen Fenster der Wichtel ertappt wurde (Spiel „Eingeschneit!“). */
-const ELF_DAY = 3
+const ELF_DAY = 9
 /** Spuren im Schnee: Das Rentier aus dem Punktebild zieht in den Giebel. */
 const REINDEER_DAY = 2
 /** Weihnachtsbäckerei: Hinter den Fenstern läuft danach das Kuchenband. */
@@ -27,20 +27,23 @@ const MOON_DAY = 5
 const SQUIRREL_DAY = 6
 /** Lebkuchenhaus: Das fertige Haus steht danach im Fenster. */
 const GINGER_DAY = 7
-/** Lichterketten-Schlamassel: Die entwirrte Kette hängt danach an der Dachkante von Haus 9. */
-const LIGHTS_DAY = 9
+/** Lichterketten-Schlamassel: Danach leuchten alle Lichterketten, die entwirrte hängt an Haus 3. */
+const LIGHTS_DAY = 3
 /** Holz hacken: Danach brennt in Haus 10 der Kamin, und der Schornstein spuckt Flammen. */
 const FIREWOOD_DAY = 10
 /** Santa Bibber: Danach fliegt der Weihnachtsmann bei jedem Blick zum Baum vorbei. */
 const SANTA_DAY = 11
 /** Durch den Schornstein: Danach sitzt die Katze auf dem Balkon von Haus 12. */
 const CHIMNEY_DAY = 12
+const TETRIS_DAY = 23
 /** Glühwein-Fieber: Danach steht der Glühweinstand auf dem Gehweg vor Haus 13. */
 const GLUEHWEIN_DAY = 13
 /** Weihnachtskugelball: Danach lässt sich auf der Straße der Korb antippen – die Scherben bleiben liegen. */
 const HOOP_DAY = 14
 /** Plätzchen-Hüpfer: Danach hüpft Santa hinter den oberen Fenstern von Haus 15. */
 const JUMP_DAY = 15
+/** Rentiere gesucht!: Danach streifen Rudolph und die fünf gefundenen Rentiere über die Wiese gegenüber. */
+const MEADOW_REINDEER_DAY = 16
 
 const sceneModule = import('../scene/StreetScene.ts')
 
@@ -58,8 +61,10 @@ function syncScene(scene: StreetScene): () => void {
       )
       // Ist das letzte Rätsel gelöst, steht das Tor offen – der Weg zum Baum ist frei.
       scene.setGateOpen(houseStatus(state, GATE_DAY) === 'completed')
-      // Easter Egg: Der ertappte Wichtel aus Haus 3 lugt danach hinter dessen Ecke hervor.
+      // Easter Egg: Der ertappte Wichtel aus Haus 9 lugt danach hinter dessen Ecke hervor.
       scene.setPeekingElf(houseStatus(state, ELF_DAY) === 'completed' ? ELF_DAY : null)
+      // Bis „Eingeschneit!“ gelöst ist, sind die Fenster von Haus 9 vereist und zugeschneit.
+      scene.setFrostedWindows(houseStatus(state, ELF_DAY) === 'completed' ? null : ELF_DAY)
       // Rentier aus Haus 2 im Giebel, Kuchen-Förderband hinter den Fenstern von Haus 1.
       scene.setGableReindeer(houseStatus(state, REINDEER_DAY) === 'completed' ? REINDEER_DAY : null)
       scene.setCakeConveyor(houseStatus(state, BAKERY_DAY) === 'completed' ? BAKERY_DAY : null)
@@ -80,15 +85,26 @@ function syncScene(scene: StreetScene): () => void {
         { icing: ginger.icing, candies: ginger.candies },
       )
       scene.setSkiHalfpipe(houseStatus(state, SKI_HOUSE_DAY) === 'completed')
+      // Erst nach dem Lichterketten-Schlamassel leuchten überall in der Straße Lichterketten.
+      // Wurde es eben gelöst, gehen sie nach der Rückkehr auf die Straße Haus für Haus an.
+      const lightsOn = houseStatus(state, LIGHTS_DAY) === 'completed'
+      if (lightsOn && previous && houseStatus(previous, LIGHTS_DAY) !== 'completed') scene.prepareLightsReveal()
+      else scene.setStringLights(lightsOn)
       scene.setLightChain(houseStatus(state, LIGHTS_DAY) === 'completed' ? LIGHTS_DAY : null, LAMP_COLORS)
       scene.setGluehweinStand(houseStatus(state, GLUEHWEIN_DAY) === 'completed' ? GLUEHWEIN_DAY : null)
       // Den Korb schraubt erst das Spiel von Haus 14 an: Er hängt, sobald das Haus aufgeschlossen ist.
       scene.setGarageHoop(['unlocked', 'completed'].includes(houseStatus(state, HOOP_DAY)))
       scene.setHoopShot(houseStatus(state, HOOP_DAY) === 'completed')
+      scene.setMeadowReindeer(houseStatus(state, MEADOW_REINDEER_DAY) === 'completed' ? MEADOW_REINDEER_DAY : null)
       scene.setSantaWindows(houseStatus(state, JUMP_DAY) === 'completed' ? JUMP_DAY : null)
       scene.setFireplace(houseStatus(state, FIREWOOD_DAY) === 'completed' ? FIREWOOD_DAY : null)
       scene.setSantaFlyby(houseStatus(state, SANTA_DAY) === 'completed')
       scene.setBalconyCat(houseStatus(state, CHIMNEY_DAY) === 'completed' ? CHIMNEY_DAY : null)
+      // Nach Geschenke-Tetris stapeln sich vor allen Haustüren Geschenke.
+      // Eben erst gelöst? Dann fallen sie nach der Rückkehr vom Himmel.
+      const presentsOn = houseStatus(state, TETRIS_DAY) === 'completed'
+      if (presentsOn && previous && houseStatus(previous, TETRIS_DAY) !== 'completed') scene.preparePresentDrop()
+      scene.setPresentStacks(presentsOn)
     }
     if (state.selfies !== previous?.selfies) {
       for (let day = 1; day <= TOTAL_DAYS; day++) scene.setSelfie(day, state.selfies[day] ?? null)

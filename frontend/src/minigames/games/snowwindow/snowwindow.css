@@ -142,15 +142,36 @@
   transition: width 0.2s ease;
 }
 
-.snowwin__hold {
+/* Schwamm: Wischen mit Finger oder Maus über die Scheibe */
+.snowwin__window[data-wipe='true'] {
+  cursor: none;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 }
 
-.snowwin__hold:active {
-  background: var(--berry-dark);
+.snowwin__sponge {
+  position: absolute;
+  width: 26%;
+  pointer-events: none;
+  transform: translate(-50%, -55%) rotate(-12deg);
+  transition: transform 0.12s ease, opacity 0.15s ease;
+  filter: drop-shadow(0 4px 6px rgb(40 30 20 / 0.35));
+}
+
+.snowwin__sponge svg {
+  display: block;
+  width: 100%;
+}
+
+.snowwin__sponge[data-visible='false'] {
+  opacity: 0;
+}
+
+/* Beim Wischen drückt man ihn an die Scheibe – etwas flacher und gerader */
+.snowwin__sponge[data-pressed='true'] {
+  transform: translate(-50%, -55%) rotate(-4deg) scale(1.04, 0.92);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -159,31 +159,8 @@
   cursor: pointer;
 }
 
-.baubleball__hint {
-  min-height: 2.6em;
-  max-width: 640px;
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  color: var(--cocoa);
-  animation: baubleball-fade 0.25s ease-out;
-}
-
-.baubleball__hint[data-tone='good'] {
-  color: var(--pine);
-}
-
-.baubleball__hint[data-tone='bad'] {
-  color: var(--berry);
-}
-
-@keyframes baubleball-fade {
-  from { opacity: 0.2; transform: translateY(3px); }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .baubleball__count,
-  .baubleball__hint {
+  .baubleball__count {
     animation: none;
   }
 }

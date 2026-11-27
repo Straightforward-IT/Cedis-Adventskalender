@@ -1,5 +1,5 @@
 /**
- * Lichterketten-Schlamassel: Die Lichterkette für Haus 9 kommt in drei Strängen aus der
+ * Lichterketten-Schlamassel: Die Lichterkette für Haus 3 kommt in drei Strängen aus der
  * Kiste – und die sind ineinander verheddert. Jeder Strang führt durch die Schlaufen der
  * anderen bis zu seinem Stecker. Wer einen Stecker greift, schiebt ihn rückwärts den Weg
  * entlang, den der Strang genommen hat – Schlaufe für Schlaufe, bis er frei ist. Dann kommt

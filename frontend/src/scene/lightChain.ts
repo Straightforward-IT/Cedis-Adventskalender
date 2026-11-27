@@ -61,7 +61,7 @@ export function festoon(edge: readonly Point[]): { anchors: Point[]; curve: Poin
 }
 
 /**
- * Easter Egg aus Haus 9 („Lichterketten-Schlamassel“): die entwirrte Lichterkette, in Bögen
+ * Easter Egg aus Haus 3 („Lichterketten-Schlamassel“): die entwirrte Lichterkette, in Bögen
  * an der Dachkante aufgehängt, mit den bunten Lämpchen aus dem Spiel. Koordinaten wie das Haus.
  */
 export function buildLightChain(
@@ -71,7 +71,7 @@ export function buildLightChain(
   const solid = new Builder()
   const glow = new Builder()
   const halo = new Builder()
-  const builders = { solid, glow, halo, rnd: createRandom(hashSeed(9, 'lichterkette')) }
+  const builders = { solid, glow, halo, rnd: createRandom(hashSeed(3, 'lichterkette')) }
   const wire = col(WIRE)
   const bulbs = colors.map(col)
   const z = eaves.z + 0.12

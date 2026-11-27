@@ -20,6 +20,8 @@ const KERB_Z = 3
 const ROAD_WIDTH = 5
 const FENCE_Z = 12.5
 const ROAD_START_X = -14
+/** Hinter der rechten Ecke dieses Hauses lugt nach „Eingeschneit!“ ein Wichtel hervor. */
+const PEEKING_ELF_DAY = 9
 
 const FLAT = { x: -Math.PI / 2 }
 const LANTERN_LIGHT = '#ffc977'
@@ -68,7 +70,8 @@ function addGround(builders: Builders, layout: StreetLayout): void {
 function addStreetLantern({ solid, glow, halo, rnd }: Builders, x: number, z: number): void {
   const iron = col(IRON)
   const warm = col(LANTERN_LIGHT)
-  const light = decoGlow(rnd, 0.06)
+  // Laternen gehen – wie die Lichterketten – erst nach Haus 3 an.
+  const light = { ...decoGlow(rnd, 0.06), string: 'lamp' as const }
   solid.cylinder(x, 0.12, z, 0.16, 0.12, 0.24, 8, iron)
   solid.cylinder(x, 1.6, z, 0.055, 0.045, 2.8, 6, iron)
   solid.cylinder(x, 3.02, z, 0.12, 0.2, 0.08, 6, iron)
@@ -80,16 +83,21 @@ function addStreetLantern({ solid, glow, halo, rnd }: Builders, x: number, z: nu
   halo.quad(x, 0.06, z + 0.4, 7.5, 6.2, haloOf(warm, 0.3), FLAT, light)
 }
 
-function addLanterns(builders: Builders, layout: StreetLayout): void {
+/** Wo entlang der Häuserzeile Laternen stehen (x, alle bei z = STREET_LANTERN_Z) – nur in jeder zweiten Lücke. */
+export function streetLanternXs(layout: StreetLayout): number[] {
   const { plots } = layout
-  addStreetLantern(builders, plots[0].x - plots[0].spec.width / 2 - 1.2, STREET_LANTERN_Z)
+  const xs = [plots[0].x - plots[0].spec.width / 2 - 1.2]
   for (let i = 1; i < plots.length - 1; i += 2) {
     const gapStart = plots[i].x + plots[i].spec.width / 2
     const gapEnd = plots[i + 1].x - plots[i + 1].spec.width / 2
     // Vor der Garageneinfahrt steht die Laterne am Rand, nicht mitten in der Einfahrt.
-    const x = plots[i].spec.day === GARAGE_AFTER_DAY ? gapEnd - 0.35 : (gapStart + gapEnd) / 2
-    addStreetLantern(builders, x, STREET_LANTERN_Z)
+    xs.push(plots[i].spec.day === GARAGE_AFTER_DAY ? gapEnd - 0.35 : (gapStart + gapEnd) / 2)
   }
+  return xs
+}
+
+function addLanterns(builders: Builders, layout: StreetLayout): void {
+  for (const x of streetLanternXs(layout)) addStreetLantern(builders, x, STREET_LANTERN_Z)
   // Rund um den Platz – aber nicht direkt vor dem Baum
   for (const degrees of [20, 160, 200, 250, 290, 340]) {
     const angle = (degrees * Math.PI) / 180
@@ -182,7 +190,8 @@ function addChristmasTree(ground: Builders, lights: Builders, layout: StreetLayo
     const bx = x + Math.cos(angle) * (surface + 0.1)
     const bz = z + Math.sin(angle) * (surface + 0.1)
     const color = colors[i % colors.length]
-    const light = decoGlow(rnd, 0.6)
+    // Die Lichter am großen Baum gehören zum großen Lichter-Auftritt nach Haus 3.
+    const light = { ...decoGlow(rnd, 0.6), string: true }
     lights.glow.bulb(bx, y, bz, 0.12, color, light)
     lights.halo.billboard(bx, y, bz, 1, 1, haloOf(color, 0.32), light)
   }
@@ -190,14 +199,15 @@ function addChristmasTree(ground: Builders, lights: Builders, layout: StreetLayo
   // Stern auf der Spitze, über Kreuz – damit er aus jeder Richtung leuchtet
   const top = TREE_HEIGHT + 0.35
   const gold = col(GOLD)
-  const shine = decoGlow(rnd, 0.2)
+  // Der Stern glimmt vorher schwach (wie die Laternen) und strahlt erst danach.
+  const shine = { ...decoGlow(rnd, 0.2), string: 'lamp' as const }
   lights.glow.star(x, top, z, 0.62, 0.27, 5, gold, shine)
   const crossed = new THREE.Matrix4()
     .makeTranslation(x, top, z)
     .multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2))
   lights.glow.within(crossed, () => lights.glow.star(0, 0, 0, 0.62, 0.27, 5, gold, shine))
   lights.halo.billboard(x, top, z, 5.5, 5.5, haloOf(gold, 0.4), shine)
-  lights.halo.quad(x, 0.07, z + 1, 17, 15, haloOf(col('#ffcf8a'), 0.3), FLAT)
+  lights.halo.quad(x, 0.07, z + 1, 17, 15, haloOf(col('#ffcf8a'), 0.3), FLAT, shine)
 
   // Geschenke unter dem Baum
   for (let i = 0; i < 8; i++) {
@@ -233,8 +243,9 @@ function createForest(layout: StreetLayout, material: THREE.Material, rnd: Rando
     if (rnd.chance(0.65)) {
       const x = (a.x + a.spec.width / 2 + b.x - b.spec.width / 2) / 2
       const tree = { x, z: -2.6 - rnd.range(0, 1.2), height: rnd.range(3, 4.8), afterHouse: a.spec.day }
-      // In der Garageneinfahrt wächst kein Baum – gezogen wird trotzdem, damit der Wald gleich bleibt.
-      if (a.spec.day !== GARAGE_AFTER_DAY) trees.push(tree)
+      // In der Garageneinfahrt wächst kein Baum, und hinter Haus 9 lugt der Wichtel um die Ecke –
+      // gezogen wird trotzdem, damit der übrige Wald gleich bleibt.
+      if (a.spec.day !== GARAGE_AFTER_DAY && a.spec.day !== PEEKING_ELF_DAY) trees.push(tree)
     }
   }
   // Am Anfang der Straße und hinter dem Platz schließt der Wald die Straße ab

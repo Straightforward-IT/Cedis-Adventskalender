@@ -1,0 +1,218 @@
+/* Geschenke-Tetris: Pakete stapeln, volle Reihen wandern auf den Schlitten. */
+
+.tetris {
+  --tetris-width: min(100%, 360px, calc(56vh * 10 / 16));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: center;
+}
+
+.tetris__top {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: var(--tetris-width);
+}
+
+.tetris__sleigh {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border-radius: 999px;
+  background: rgb(255 246 230 / 0.92);
+  box-shadow: 0 4px 12px rgb(40 20 10 / 0.18);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+}
+
+.tetris__sleigh-icon {
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.tetris__bar {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(75 51 43 / 0.15);
+}
+
+.tetris__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: repeating-linear-gradient(-45deg, #c2483c 0 8px, #e2665a 8px 16px);
+  transition: width 0.5s cubic-bezier(0.3, 1.4, 0.5, 1);
+  animation: tetris-glow 0.7s ease-out;
+}
+
+.tetris__fill[data-full='true'] {
+  background: repeating-linear-gradient(-45deg, #2f7d4f 0 8px, #4fae6b 8px 16px);
+}
+
+@keyframes tetris-glow {
+  0% { filter: brightness(1.6); }
+}
+
+.tetris__tick {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 1px;
+  background: rgb(255 255 255 / 0.5);
+}
+
+.tetris__count {
+  min-width: 3.2em;
+  color: var(--cocoa-soft);
+  font-size: 0.95rem;
+}
+
+.tetris__count b {
+  display: inline-block;
+  color: var(--cocoa);
+  font-size: 1.15rem;
+  animation: tetris-bump 0.4s ease-out;
+}
+
+@keyframes tetris-bump {
+  0% { transform: scale(1.7); color: var(--berry); }
+}
+
+.tetris__next {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  width: 74px;
+  padding: 4px 6px;
+  border-radius: 14px;
+  background: #2a2e62;
+  color: rgb(255 248 238 / 0.75);
+  font-size: 0.68rem;
+}
+
+.tetris__preview {
+  width: 48px;
+  height: 26px;
+}
+
+.tetris__view {
+  position: relative;
+  width: var(--tetris-width);
+  aspect-ratio: 10 / 16;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 20% 10%, rgb(255 255 255 / 0.08) 0 1px, transparent 2px) 0 0 / 38px 38px,
+    linear-gradient(#232858, #343a78);
+  box-shadow: 0 10px 26px rgb(10 10 30 / 0.35), inset 0 0 0 3px rgb(255 255 255 / 0.06);
+}
+
+.tetris__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+.tetris__canvas:focus-visible {
+  box-shadow: inset 0 0 0 3px #ffe08a;
+}
+
+.tetris__done {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: rgb(20 22 60 / 0.55);
+  color: #fff8ee;
+  font-family: var(--font-display);
+  pointer-events: none;
+  animation: tetris-pop 0.5s cubic-bezier(0.3, 1.6, 0.5, 1);
+}
+
+.tetris__done strong {
+  font-size: 1.6rem;
+  text-shadow: 0 3px 12px rgb(10 12 40 / 0.8);
+}
+
+@keyframes tetris-pop {
+  from { transform: scale(0.5); opacity: 0; }
+}
+
+.tetris__status {
+  min-height: 1.5em;
+  max-width: 30em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  color: var(--cocoa);
+}
+
+.tetris__status[data-tone='hint'] {
+  color: var(--berry);
+}
+
+.tetris__status[data-tone='done'] {
+  color: var(--pine);
+}
+
+.tetris__pad {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  width: var(--tetris-width);
+}
+
+.tetris__key {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  background: rgb(255 246 230 / 0.92);
+  box-shadow: 0 3px 0 rgb(75 51 43 / 0.25);
+  color: var(--cocoa);
+  font-size: 1.3rem;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tetris__key:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 rgb(75 51 43 / 0.25);
+}
+
+.tetris__key--drop {
+  background: var(--berry);
+  color: var(--cream);
+}
+
+.tetris__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tetris__fill,
+  .tetris__count b,
+  .tetris__done {
+    animation: none;
+    transition: none;
+  }
+}

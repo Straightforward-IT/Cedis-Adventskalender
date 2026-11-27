@@ -47,8 +47,10 @@ export function addBulb(
   color: THREE.Color,
   size = 0.062,
   twinkle = 0.55,
+  /** Teil einer Lichterkette (leuchtet erst nach Haus 3)? Einzelne Lampen übergeben false. */
+  string = true,
 ): void {
-  const light = decoGlow(rnd, twinkle)
+  const light = { ...decoGlow(rnd, twinkle), string }
   glow.bulb(x, y, z, size, color, light)
   halo.billboard(x, y, z, size * 8, size * 8, haloOf(color, 0.42), light)
 }

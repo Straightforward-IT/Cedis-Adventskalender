@@ -11,6 +11,11 @@ export interface Glow {
   twinkle: number
   /** 0 = Deko-Licht (Lichterkette), 1 = Licht aus dem Hausinneren (Fenster). */
   interior: number
+  /**
+   * Geht erst an, wenn Haus 3 gelöst ist (siehe `STRING_LIGHTS`): `true` = Lämpchen einer
+   * Lichterkette (aus: unsichtbar), `'lamp'` = Straßenlaterne (aus: glimmt nur schwach).
+   */
+  string?: boolean | 'lamp'
 }
 
 export interface Rotation {
@@ -36,6 +41,7 @@ export class Batch {
   private readonly colors: number[] = []
   private readonly uvs: number[] = []
   private readonly glows: number[] = []
+  private readonly strings: number[] = []
   private readonly sizes: number[] = []
   private readonly indices: number[] = []
   private vertexCount = 0
@@ -85,6 +91,7 @@ export class Batch {
       this.normals.push(normal.x, normal.y, normal.z)
       this.uvs.push(uvs ? uvs.getX(i) : 0, uvs ? uvs.getY(i) : 0)
       this.glows.push(glow?.phase ?? 0, glow?.twinkle ?? 0, glow?.interior ?? 0)
+      this.strings.push(glow?.string === 'lamp' ? 2 : glow?.string ? 1 : 0)
       this.sizes.push(billboard?.[0] ?? 0, billboard?.[1] ?? 0)
     }
 
@@ -106,6 +113,7 @@ export class Batch {
     } else {
       geometry.setAttribute('uv', new THREE.Float32BufferAttribute(this.uvs, 2))
       geometry.setAttribute('aGlow', new THREE.Float32BufferAttribute(this.glows, 3))
+      geometry.setAttribute('aString', new THREE.Float32BufferAttribute(this.strings, 1))
       geometry.setAttribute('aSize', new THREE.Float32BufferAttribute(this.sizes, 2))
     }
     geometry.setIndex(this.indices)

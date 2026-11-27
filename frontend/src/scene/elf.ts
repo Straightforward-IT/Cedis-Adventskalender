@@ -13,7 +13,7 @@ export function addElfHat(
 }
 
 /**
- * Easter Egg: der Wichtel aus Haus 3, der hinter der Hausecke hervorlugt.
+ * Easter Egg: der Wichtel aus Haus 9, der hinter der Hausecke hervorlugt.
  * Ursprung (0, 0, 0) liegt 0,4 m hinter der hinteren rechten Hausecke am Boden; der Kopf ragt nach rechts (+x)
  * um die Ecke und schaut zur Straße (+z). Was links von x = 0 liegt, verdeckt das Haus.
  */

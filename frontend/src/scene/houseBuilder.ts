@@ -68,10 +68,12 @@ const HEARTH_HOUSES = new Set([10])
 /**
  * Häuser mit Balkon zur Straße: Im ersten Obergeschoss wird das rechte Fenster zur
  * Balkontür, davor ein schneebedeckter Balkon mit Geländer (Haus 12 – dort geht es
- * im Spiel über den Balkon wieder hinaus).
+ * im Spiel über den Balkon wieder hinaus – und Haus 16).
  */
-const BALCONY_HOUSES = new Set([12])
+const BALCONY_HOUSES = new Set([12, 16])
 const BALCONY_DEPTH = 0.95
+/** Abstand der Zuckerstangen von der Türmitte – außerhalb des Schwenkbereichs der Tür. */
+const CANE_BESIDE = 1.2
 
 /** Rechteckiger Teil eines Schaufensters samt seinem Lichtverlauf (unten, oben). */
 export interface ShowcaseWindow {
@@ -97,10 +99,21 @@ export interface HouseAnchors {
   showcase: ShowcaseWindow[]
   /** Fenster oben rechts, hinter dem der Kamin brennt (nur bei Häusern in `HEARTH_HOUSES`). */
   hearth: ShowcaseWindow | null
-  /** Vordere Dachkante (von links nach rechts) – dort hängt z. B. die Lichterkette aus Haus 9. */
+  /** Vordere Dachkante (von links nach rechts) – dort hängt z. B. die Lichterkette aus Haus 3. */
   eaves: { points: Point[]; z: number }
   /** Mitte des Balkonbodens (Oberkante), falls das Haus einen Balkon hat. */
   balcony: THREE.Vector3 | null
+  /** Alle Fenster der Fassade – z. B. für die vereisten Scheiben von Haus 9. */
+  windows: WindowRect[]
+}
+
+/** Ein Fenster der Fassade: Mitte unten (x, Brüstung y), Breite und Gesamthöhe samt Bogen. */
+export interface WindowRect {
+  x: number
+  y: number
+  width: number
+  height: number
+  arched: boolean
 }
 
 export interface HouseGeometry {
@@ -171,7 +184,7 @@ class HouseBuilder {
 
   /** Vordere Dachkante – an ihr hängen Lichterketten und Eiszapfen. */
   private edge: { points: Point[]; z: number } = { points: [], z: 0 }
-  private readonly windowRects: { x: number; y: number; width: number; height: number }[] = []
+  private readonly windowRects: WindowRect[] = []
   private readonly showcase: ShowcaseWindow[] = []
   private hearth: ShowcaseWindow | null = null
   private balcony: THREE.Vector3 | null = null
@@ -227,6 +240,7 @@ class HouseBuilder {
         hearth: this.hearth,
         balcony: this.balcony,
         eaves: this.edge,
+        windows: this.windowRects,
       },
     }
   }
@@ -684,12 +698,12 @@ class HouseBuilder {
           const doorSill = base + 0.08
           const doorHeight = 1.9
           this.window(x, doorSill, width, doorHeight, lit, { balcony: true })
-          this.windowRects.push({ x, y: doorSill, width, height: doorHeight })
+          this.windowRects.push({ x, y: doorSill, width, height: doorHeight, arched: false })
           this.addBalcony(x, base)
           continue
         }
         this.window(x, sill, width, height, lit, { spill: floor === 0, showcase, hearth })
-        this.windowRects.push({ x, y: sill, width, height })
+        this.windowRects.push({ x, y: sill, width, height, arched: spec.windows.style === 'arched' && !hearth })
       }
     }
   }
@@ -934,7 +948,9 @@ class HouseBuilder {
           addFir(builders, doorX + side * 0.97, 0.46, 1.15, { lights: this.bulbs, pot: true })
           break
         case 'canes':
-          addCandyCane(builders, doorX + side * beside, 0.42, side)
+          // Weit genug neben der Tür und mit dem Haken nach außen – sonst schwingt die
+          // geöffnete Tür durch die Zuckerstangen hindurch.
+          addCandyCane(builders, doorX + side * CANE_BESIDE, 0.42, -side)
           break
         case 'lanterns':
           addWallLantern(builders, doorX + side * beside, 1.85, 0.12)

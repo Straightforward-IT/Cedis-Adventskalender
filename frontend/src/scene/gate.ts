@@ -71,7 +71,8 @@ export interface GateGeometry {
 function addPillarLantern({ solid, glow, halo, rnd }: Builders, x: number, y: number): void {
   const iron = col(IRON_GREEN)
   const warm = col(LANTERN_LIGHT)
-  const light = decoGlow(rnd, 0.1)
+  // Wie die Straßenlaternen: glimmt nur schwach, bis Haus 3 die Lichter anknipst.
+  const light = { ...decoGlow(rnd, 0.1), string: 'lamp' as const }
   solid.box(x, y + 0.04, 0, 0.42, 0.08, 0.42, iron)
   glow.box(x, y + 0.36, 0, 0.3, 0.52, 0.3, warm, undefined, light)
   for (const dx of [-0.17, 0.17]) {
@@ -130,9 +131,11 @@ function addArch(builders: Builders): void {
   }
   // Aus der Ferne verschmelzen diese Lichthöfe zu einem leuchtenden Bogen.
   const shine = haloOf(col(LANTERN_LIGHT), 0.3)
+  // Der Schein gehört zur Lichterkette am Bogen – er geht mit ihr an.
+  const chain = { phase: 0, twinkle: 0, interior: 0, string: true }
   for (let i = 0; i <= 8; i++) {
     const [x, y] = at(i / 8)
-    halo.billboard(x, y, 0.2, 2.6, 2.6, shine)
+    halo.billboard(x, y, 0.2, 2.6, 2.6, shine, chain)
   }
   for (const side of [-1, 1]) {
     const [x, y] = at(side < 0 ? 0 : 1)

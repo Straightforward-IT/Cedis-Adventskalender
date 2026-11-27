@@ -2,6 +2,8 @@ import * as THREE from 'three'
 import { ROAD_CENTER_Z, STREET_LANTERN_Z, TREE_Z } from './world.ts'
 
 const { clamp, lerp, smoothstep, degToRad } = THREE.MathUtils
+/** Ab hier (vor den Fassaden bei z = 0) fährt die Kamera schon gerade in die Häuserlücke. */
+const GAP_ALIGNED_Z = 1.2
 
 /** Öffnungswinkel der Kamera beim Blick auf die Fassaden. */
 export const FRONT_FOV = 38
@@ -70,18 +72,29 @@ export function createPose(): Pose {
   return { position: new THREE.Vector3(), target: new THREE.Vector3(), fov: FRONT_FOV }
 }
 
-/** Von der Straße an der Laterne vorbei und mittig durch die Häuserlücke fahren. */
-export function approachThroughGap(pose: Pose, destination: Pose, amount: number): void {
+/**
+ * Von der Straße (an der Laterne vorbei, falls dort eine steht) und mittig durch die Häuserlücke fahren. Kurz vor den
+ * Fassaden steht die Kamera schon mittig vor der Lücke und fährt gerade hinein; erst drinnen
+ * dreht sie sich zum Ziel – so schaut man beim Hineinfahren nie schräg in eine Hauswand.
+ */
+export function approachThroughGap(pose: Pose, destination: Pose, amount: number, lantern = true): void {
   const { position } = pose
   const end = destination.position
   const z = lerp(position.z, end.z, amount)
   const bendZ = STREET_LANTERN_Z - 0.45
+  const alignedZ = Math.max(end.z, GAP_ALIGNED_Z)
   const side = position.x > end.x ? 1 : -1
   const approach = 1 - smoothstep(z, bendZ, position.z)
-  const enter = 1 - smoothstep(z, 0.5, bendZ)
-  const besideLantern = lerp(position.x, end.x + side * 0.72, approach)
+  const enter = 1 - smoothstep(z, alignedZ, bendZ)
+  // Steht vor der Lücke keine Laterne, geht es ohne Schlenker direkt auf die Lückenmitte zu.
+  const besideLantern = lerp(position.x, end.x + (lantern ? side * 0.72 : 0), approach)
   position.set(lerp(besideLantern, end.x, enter), lerp(position.y, end.y, approach), z)
-  pose.target.lerp(destination.target, lerp(amount, 1, enter))
+  // Geradeaus die Lücke entlang, und erst zwischen den Häusern zum eigentlichen Ziel drehen.
+  const turn = end.z < 0 ? 1 - smoothstep(z, end.z, 0) : 1
+  const straight = new THREE.Vector3(end.x, destination.target.y, Math.min(end.z, 0) - 4)
+  const aim = straight.lerp(destination.target, turn)
+  // Schon beim Ausweichen um die Laterne zielt der Blick in die Lücke, nicht auf eine Fassade.
+  pose.target.lerp(aim, lerp(amount, 1, approach))
   pose.fov = lerp(pose.fov, destination.fov, amount)
 }
 

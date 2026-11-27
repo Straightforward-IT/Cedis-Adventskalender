@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { hasMinigame, minigameFor } from '../../registry.ts'
 import { createMeter, rms, updateMeter } from './mic.ts'
-import { blow, CLEAR_AT, clearedFraction, COLS, freshSnow, isClear, MAX_DEPTH, restoreSnow, ROWS, seededRandom, snapshot, startSnow, sweep } from './model.ts'
+import { blow, CLEAR_AT, clearedFraction, COLS, freshSnow, isClear, MAX_DEPTH, restoreSnow, ROWS, seededRandom, snapshot, startSnow, sweep, wipe } from './model.ts'
 
 const DT = 1 / 60
 
@@ -16,9 +16,9 @@ function blowFor(snow: number[], strength: number, seconds: number): number {
 }
 
 describe('Eingeschneit', () => {
-  it('wohnt in Haus 3', () => {
+  it('wohnt in Haus 9', () => {
     expect(hasMinigame(3)).toBe(true)
-    expect(minigameFor(3).title).toBe('Eingeschneit!')
+    expect(minigameFor(9).title).toBe('Eingeschneit!')
   })
 
   it('beginnt mit einem komplett zugeschneiten Fenster, unten am tiefsten', () => {
@@ -107,5 +107,32 @@ describe('Puste-Messer', () => {
   it('lässt nach dem Pusten schnell wieder nach', () => {
     const { meter } = settle(0.25, 1)
     expect(settle(0.005, 1, meter).strength).toBeLessThan(0.05)
+  })
+
+  it('der Schwamm wischt dort, wo er entlangfährt – und lässt den Rest liegen', () => {
+    const snow = freshSnow()
+    const before = [...snow]
+    const removed = wipe(snow, { x: 0.1, y: 0.2 }, { x: 0.9, y: 0.2 })
+    expect(removed).toBeGreaterThan(0)
+    const at = (x: number, y: number) => Math.floor(y * ROWS) * COLS + Math.floor(x * COLS)
+    expect(snow[at(0.5, 0.2)]).toBeLessThan(before[at(0.5, 0.2)])
+    expect(snow[at(0.5, 0.8)]).toBe(before[at(0.5, 0.8)])
+  })
+
+  it('ein Wisch reicht nicht, ein paar Wische legen eine Bahn frei', () => {
+    const snow = freshSnow()
+    const lane = Math.floor(0.3 * ROWS) * COLS + Math.floor(0.5 * COLS)
+    wipe(snow, { x: 0, y: 0.3 }, { x: 1, y: 0.3 })
+    expect(snow[lane]).toBeGreaterThan(0)
+    for (let i = 0; i < 4; i++) wipe(snow, { x: 0, y: 0.3 }, { x: 1, y: 0.3 })
+    expect(snow[lane]).toBe(0)
+  })
+
+  it('mit genug Wischen wird das Fenster frei', () => {
+    const snow = freshSnow()
+    for (let pass = 0; pass < 6; pass++) {
+      for (let y = 0.02; y < 1; y += 0.08) wipe(snow, { x: 0, y }, { x: 1, y })
+    }
+    expect(clearedFraction(snow)).toBeGreaterThanOrEqual(CLEAR_AT)
   })
 })

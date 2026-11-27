@@ -3,12 +3,25 @@ import { DARK_GLASS } from './palette.ts'
 
 export type TimeUniform = THREE.IUniform<number>
 
+/** Alle Lichterketten an bzw. aus (Grenze ganz rechts bzw. ganz links). */
+export const STRINGS_ON = 1e9
+export const STRINGS_OFF = -1e9
+
+/**
+ * Schalter für alle Lichterketten an Häusern und Bäumen – gemeinsam für jedes Leuchtmaterial.
+ * Der Wert ist eine Grenze entlang der Straße (Welt-x): Lämpchen links davon leuchten. So können
+ * die Ketten nach dem Lichterketten-Schlamassel (Haus 3) Haus für Haus angehen.
+ */
+export const STRING_LIGHTS: THREE.IUniform<number> = { value: STRINGS_ON }
+
 const GLOW_VERTEX = /* glsl */ `
 uniform float uTime;
 uniform float uPower;
 uniform float uDim;
 uniform vec3 uGlassOff;
+uniform float uStrings;
 attribute vec3 aGlow;
+attribute float aString;
 attribute vec2 aSize;
 varying vec3 vColor;
 #ifdef HALO
@@ -17,19 +30,32 @@ varying vec3 vColor;
 #include <fog_pars_vertex>
 
 void main() {
+  // Ausgeschaltet: Lichterketten verschwinden ganz, Laternen glimmen nur schwach.
+  bool off = aString > 0.5 && (modelMatrix * vec4(position, 1.0)).x > uStrings;
+  bool hide = off && aString < 1.5;
+  if (hide) {
+    vColor = vec3(0.0);
+    #ifdef HALO
+      vUv = vec2(0.5);
+    #endif
+    gl_Position = vec4(0.0, 0.0, 2.0, 1.0);
+    return;
+  }
   float speed = 1.3 + fract(aGlow.x * 0.731) * 2.4;
   float wave = 0.5 + 0.5 * sin(uTime * speed + aGlow.x);
   vec3 lit = color * (1.0 - aGlow.y * wave);
   vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+  // Gedimmte Laterne: Glas und Lichtschein nur zu einem Bruchteil.
+  float dimmed = off ? 0.28 : 1.0;
   #ifdef HALO
-    vColor = lit * mix(mix(uDim, 1.0, uPower), uPower, aGlow.z);
+    vColor = lit * mix(mix(uDim, 1.0, uPower), uPower, aGlow.z) * dimmed * dimmed;
     vUv = uv;
     // Billboards: zur Kamera aufspannen und ein Stück vorziehen, damit Wände sie nicht anschneiden.
     mvPosition.xy += (uv - 0.5) * aSize;
     mvPosition.z += min(aSize.x, 1.0) * 0.6;
   #else
     vec3 asleep = mix(color * uDim, uGlassOff, aGlow.z);
-    vColor = mix(asleep, lit, uPower);
+    vColor = mix(asleep, lit, uPower) * dimmed;
   #endif
   gl_Position = projectionMatrix * mvPosition;
   #include <fog_vertex>
@@ -88,6 +114,7 @@ export function createGlowMaterial(
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
       uTime: time,
+      uStrings: STRING_LIGHTS,
       uPower: { value: 1 },
       uDim: { value: options.dim ?? 0.42 },
       uGlassOff: { value: new THREE.Color(DARK_GLASS) },

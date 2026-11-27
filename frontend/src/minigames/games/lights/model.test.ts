@@ -28,9 +28,9 @@ function pullBack(states: CableState[], cable: number) {
 }
 
 describe('Lichterketten-Schlamassel', () => {
-  it('wohnt in Haus 9', () => {
-    expect(hasMinigame(9)).toBe(true)
-    expect(minigameFor(9).title).toBe('Lichterketten-Schlamassel')
+  it('wohnt in Haus 3', () => {
+    expect(hasMinigame(3)).toBe(true)
+    expect(minigameFor(3).title).toBe('Lichterketten-Schlamassel')
   })
 
   it('verknotet die Stränge wie geplant', () => {

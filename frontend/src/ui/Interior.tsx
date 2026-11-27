@@ -1,6 +1,7 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import type { ComponentType, LazyExoticComponent } from 'react'
 import { TOTAL_DAYS, formatDay } from '../lib/calendar.ts'
+import { setGameSkip } from '../lib/devPreview.ts'
 import { isGate, placeTitle } from '../lib/places.ts'
 import { minigameFor } from '../minigames/registry.ts'
 import type { MinigameProps } from '../minigames/types.ts'
@@ -31,6 +32,16 @@ export function Interior({ day, initialStage = 'game' }: { day: number; initialS
   const outdoor = stage === 'game' && definition.layout === 'outdoor'
   // Ist das letzte Rätsel gelöst, führt der Weg nicht zurück, sondern durchs Tor zum Baum.
   const toTree = useStore((state) => isGate(day) && Boolean(state.progress.completed[day]))
+
+  // Dev-Vorschau: Das laufende Spiel lässt sich von der Vorschau-Leiste aus überspringen.
+  useEffect(() => {
+    if (stage !== 'game') return
+    setGameSkip(() => {
+      completeGame(day)
+      setStage('reward')
+    })
+    return () => setGameSkip(null)
+  }, [stage, day])
 
   return (
     <section className={`interior${outdoor ? ' interior--outdoor' : ''}`} aria-label={outdoor ? `Hinter Haus ${day}` : isGate(day) ? 'Am Tor' : `Im Haus ${day}`}>

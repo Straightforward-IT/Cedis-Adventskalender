@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import App from '../App.tsx'
 import { DEFAULT_CALENDAR_YEAR, TOTAL_DAYS } from '../lib/calendar.ts'
-import { PREVIEW_KEY } from '../lib/devPreview.ts'
+import { PREVIEW_KEY, useGameSkip } from '../lib/devPreview.ts'
 import { eveningMoonPhase, illumination, phaseName } from '../lib/moon.ts'
 import { placeTitle } from '../lib/places.ts'
 import { hasMinigame, minigameFor } from '../minigames/registry.ts'
+import { leaveHouse } from '../state/flow.ts'
 import { useStore } from '../state/store.ts'
 import { HOUSE_STATUSES, SCREENS, parsePreviewRoute, previewHref } from './routes.ts'
 import type { PreviewScreen } from './routes.ts'
@@ -64,7 +65,29 @@ function Overview() {
   )
 }
 
+/**
+ * Sobald man (auch über die Straße) in einem Minispiel steht, zeigt die Leiste Spiel-Werkzeuge:
+ * welches Spiel läuft, überspringen (gilt als gelöst) und zurück zur Straße.
+ */
+function GameControls({ day, onReset }: { day: number; onReset(): void }) {
+  const skip = useGameSkip()
+  return (
+    <nav className="dev-preview__controls dev-preview__controls--game" aria-label="Minispiel-Werkzeuge">
+      <p className="dev-preview__game">
+        <span>Minispiel · {placeTitle(day)}</span>
+        <strong>{minigameFor(day).title}</strong>
+      </p>
+      <button type="button" className="dev-preview__skip" disabled={!skip} onClick={() => skip?.()}>
+        {skip ? 'Spiel überspringen ✓' : 'Gelöst ✓'}
+      </button>
+      <button type="button" onClick={() => void leaveHouse()}>Zurück zur Straße</button>
+      <button type="button" onClick={onReset}>Zurücksetzen ↻</button>
+    </nav>
+  )
+}
+
 function ScreenPreview() {
+  const insideDay = useStore((state) => (state.phase === 'inside' ? state.insideDay : null))
   const [attempt, setAttempt] = useState(0)
   const [savedState, setSavedState] = useState('')
   const [error, setError] = useState('')
@@ -99,8 +122,12 @@ function ScreenPreview() {
     }
   }
 
+  // Über die Straße ins Haus gegangen: statt der Screen-Auswahl die Spiel-Werkzeuge zeigen.
+  const inGameFromStreet = insideDay !== null && screen !== 'game' && screen !== 'reward'
+
   return (
     <>
+      {inGameFromStreet ? <GameControls day={insideDay} onReset={() => window.location.reload()} /> : (
       <nav className="dev-preview__controls" aria-label="Vorschau auswählen">
         <label>
           Screen
@@ -144,8 +171,10 @@ function ScreenPreview() {
         <p className="dev-preview__moon" title={`Abend des ${moonDay}. Dezember ${DEFAULT_CALENDAR_YEAR}`}>
           {phaseName(moonPhase)} · {Math.round(illumination(moonPhase) * 100)} %
         </p>
+        {screen === 'game' && <SkipButton />}
         <button type="button" onClick={() => window.location.reload()}>Zurücksetzen ↻</button>
       </nav>
+      )}
       {screen === 'scanner' && (
         <p className="dev-preview__hint">Testschlüssel: <code>{PREVIEW_KEY}</code> · QR-Inhalt: <code>{day}.{PREVIEW_KEY}</code> · Andere Schlüssel zeigen den Fehlerfall.</p>
       )}
@@ -167,14 +196,54 @@ function ScreenPreview() {
   )
 }
 
-export default function DevPreview() {
+/** „Überspringen“ für den Screen „Minispiel“ – schließt das Spiel als gelöst ab. */
+function SkipButton() {
+  const skip = useGameSkip()
   return (
-    <div className="dev-preview">
+    <button type="button" className="dev-preview__skip" disabled={!skip} onClick={() => skip?.()}>
+      {skip ? 'Spiel überspringen ✓' : 'Gelöst ✓'}
+    </button>
+  )
+}
+
+const MINIMIZED_KEY = 'dev-preview:minimized'
+
+/** Eingeklappt bleibt eingeklappt – auch beim Wechsel zwischen den Screens (nur in diesem Browser). */
+function readMinimized(): boolean {
+  try {
+    return localStorage.getItem(MINIMIZED_KEY) === 'true'
+  } catch {
+    return false
+  }
+}
+
+export default function DevPreview() {
+  const [minimized, setMinimized] = useState(readMinimized)
+  const toggle = () => {
+    const next = !minimized
+    setMinimized(next)
+    try {
+      localStorage.setItem(MINIMIZED_KEY, String(next))
+    } catch {
+      // Ohne Speicher gilt es eben nur bis zum Neuladen.
+    }
+  }
+
+  return (
+    <div className="dev-preview" data-minimized={minimized}>
       <header className="dev-preview__header">
         <a className="dev-preview__brand" href="/dev">DEV <span>Preview</span></a>
         <p>Beispieldaten · Fortschritt & Selfies nur für diesen Aufruf</p>
         <a href="/">Zur App ↗</a>
+        <button type="button" className="dev-preview__minimize" onClick={toggle} aria-label="Dev-Werkzeuge einklappen" title="Einklappen">
+          ▴
+        </button>
       </header>
+      {minimized && (
+        <button type="button" className="dev-preview__restore" onClick={toggle} aria-label="Dev-Werkzeuge ausklappen" title="Dev-Werkzeuge ausklappen">
+          DEV ▾
+        </button>
+      )}
       {route.kind === 'index' ? <Overview /> : route.kind === 'not-found' ? (
         <main className="dev-preview__index">
           <h1>Diese Vorschau gibt es nicht.</h1>

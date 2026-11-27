@@ -22,15 +22,20 @@ import type { ChimneyFlames, Fireplace } from './fireplace.ts'
 import { buildGingerbreadHouse, GINGER_SCALE } from './gingerbreadHouse.ts'
 import type { GingerbreadDesign } from './gingerbreadHouse.ts'
 import { buildGableReindeer } from './reindeer.ts'
+import { createMeadowHerd } from './meadowReindeer.ts'
+import type { MeadowHerd } from './meadowReindeer.ts'
 import { buildLightChain } from './lightChain.ts'
 import { createGluehweinStand, GLUEHWEIN_STAND_Z, standOffset } from './gluehweinStand.ts'
+import { buildEntrancePresents } from './presentStacks.ts'
 import { HoopShot } from './hoopShot.ts'
 import { createSantaWindows } from './santaWindows.ts'
+import { createFrostedWindows } from './frostedWindows.ts'
+import type { FrostedWindows } from './frostedWindows.ts'
 import type { SantaWindows } from './santaWindows.ts'
 import { buildHoop, GARAGE_PLAQUE } from './garage.ts'
 import { buildSleighWithSanta } from './sleigh.ts'
 import { buildSquirrel } from './squirrel.ts'
-import { createEnvironment } from './environment.ts'
+import { createEnvironment, streetLanternXs } from './environment.ts'
 import type { Environment } from './environment.ts'
 import { GATE_FOCUS, GATE_HEIGHT, GATE_WIDTH, buildGate } from './gate.ts'
 import { buildHouse } from './houseBuilder.ts'
@@ -48,7 +53,7 @@ import {
 } from './houseSpec.ts'
 import type { Plot, StreetLayout } from './houseSpec.ts'
 import { attachGestures } from './input.ts'
-import { createGlowMaterial, createSolidMaterial } from './materials.ts'
+import { createGlowMaterial, createSolidMaterial, STRING_LIGHTS, STRINGS_OFF, STRINGS_ON } from './materials.ts'
 import type { TimeUniform } from './materials.ts'
 import { SKY, col } from './palette.ts'
 import { createSmoke, createSnowfall } from './particles.ts'
@@ -106,6 +111,10 @@ const CAMERA_NEAR = 0.8
 const GAP_NEAR = 0.25
 
 /** Ein Objekt auf der Straße, das man antippen und aus der Nähe ansehen kann. */
+/** Aus dieser Höhe fallen die Geschenke von Haus 23 – und so schnell. */
+const PRESENT_DROP_HEIGHT = 14
+const PRESENT_GRAVITY = 24
+
 interface Inspectable {
   id: string
   label: string
@@ -120,6 +129,21 @@ interface Inspectable {
 
 /** Eichhörnchen auf der Straße: kleiner als im Spiel, etwa einen Meter hoch. */
 const CRITTER_SCALE = 0.75
+/** Die Wiese gegenüber: zwischen dem Bordstein der Fahrbahn (z = 8) und dem Parkzaun (z = 12,5). */
+const MEADOW_NEAR_Z = 8.9
+const MEADOW_FAR_Z = 11.8
+/**
+ * Lichterketten-Auftritt: Wartezeit, bis der Blick beim Baum ist, und Takt von Haus zu Haus –
+ * er beginnt mit `REVEAL_STEP` Sekunden und wird mit jedem Haus um `REVEAL_SPEEDUP` schneller.
+ */
+const REVEAL_DELAY = 1.3
+/** Farbe des Sternblitzes, der kurz die Straße erhellt. */
+const FLASH_COLOR = new THREE.Color('#ffe6b0')
+const REVEAL_STEP = 0.32
+const REVEAL_SPEEDUP = 1.1
+/** Nach dem letzten Licht (und dem Sternblitz) noch so lange staunen, bevor der Blick zurückgeht. */
+const REVEAL_LINGER = 2.6
+
 type CritterState = 'waiting' | 'rising' | 'up' | 'ducking' | 'hit'
 
 type Ease = (t: number) => number
@@ -185,6 +209,8 @@ interface Door {
   pivot: THREE.Group
   /** Drehung um das Scharnier, wenn die Tür ganz offen steht. */
   swing: number
+  /** Warmer Lichtschein auf der Innenseite – wird heller, je weiter die Tür aufsteht. */
+  shine?: THREE.MeshBasicMaterial
 }
 
 interface DoorLight {
@@ -248,6 +274,8 @@ const FLAT = { x: -Math.PI / 2 }
  */
 export class StreetScene {
   readonly layout: StreetLayout = createStreetLayout(STREET_SEED)
+  /** Wo Laternen vor den Häuserlücken stehen – an ihnen fährt der Blick durch die Lücke vorbei. */
+  private readonly lanternXs = streetLanternXs(this.layout)
 
   private readonly options: StreetSceneOptions
   private readonly canvas: HTMLCanvasElement
@@ -268,6 +296,9 @@ export class StreetScene {
   private readonly gate: Stop
   private readonly environment: Environment
   private readonly sky: Sky
+  /** Himmels- und Mondlicht – beim Sternblitz kurz heller und wärmer. */
+  private readonly skyLight = new THREE.HemisphereLight('#b9c6ff', '#f6dccb', 2.4)
+  private readonly moonlight = new THREE.DirectionalLight('#dfe5ff', 1.5)
   private readonly snowfall: Snowfall
   private readonly smoke: Smoke
   private readonly atlas: NumberAtlas
@@ -294,6 +325,8 @@ export class StreetScene {
   private readonly focus = new Animated(0)
   private readonly enter = new Animated(0)
   private readonly doorOpen = new Animated(0)
+  /** Gemeinsame Form des Lichtscheins auf den Türinnenseiten. */
+  private doorShineGeometry: THREE.BufferGeometry | null = null
   private focusDay: number | null = null
   /** Der Eingang, auf den die Kamera gerade zielt – er gleitet seinem Ziel hinterher. */
   private readonly entrance: Entrance = {
@@ -337,6 +370,11 @@ export class StreetScene {
   private readonly balconies = new Map<number, THREE.Vector3>()
   /** Easter Egg nach „Durch den Schornstein“: die Katze auf dem Balkon von Haus 12. */
   private balconyCat: { root: THREE.Group; group: THREE.Group; tail: THREE.Mesh; day: number } | null = null
+  private presentStacks: { day: number; side: -1 | 1; mesh: THREE.Mesh }[] | null = null
+  private presentStacksOn = false
+  /** Geschenke fallen vom Himmel: t < 0 heißt, es geht los, sobald man wieder auf der Straße steht. */
+  private presentDrop: { t: number; delays: number[] } | null = null
+  private readonly doors = new Map<number, number>()
   /** Vordere Dachkante je Haus – für die Lichterkette. */
   private readonly eaves = new Map<number, HouseAnchors['eaves']>()
   /** Nach dem Lichterketten-Schlamassel: die bunte Kette an der Dachkante. */
@@ -347,10 +385,16 @@ export class StreetScene {
   private gluehweinStand: { group: THREE.Group; update(time: number): void; day: number } | null = null
   /** Nach dem Weihnachtskugelball: Korb antippen wirft eine Kugel durch – die Scherben bleiben liegen. */
   private hoopShot: HoopShot | null = null
+  /** Großer Auftritt der Lichterketten nach Haus 3: t < 0 = wartet auf die Rückkehr zur Straße. */
+  private lightsReveal: { t: number; steps: number[]; times: number[]; starred?: boolean } | null = null
   /** Der Basketballkorb über der Garage – erst ab Tag 14 angeschraubt. */
   private garageHoop: THREE.Group | null = null
   /** Nach dem Plätzchen-Hüpfer: kleiner Santa, der hinter den oberen Fenstern von Haus 15 hüpft. */
   private santaWindows: { windows: SantaWindows; day: number } | null = null
+  /** Fenster je Haus – für die vereisten Scheiben von Haus 9. */
+  private readonly facadeWindows = new Map<number, HouseAnchors['windows']>()
+  /** Vor „Eingeschneit!“: Eisblumen und Schnee auf den Fenstern von Haus 9. */
+  private frosted: { windows: FrostedWindows; day: number } | null = null
   /** Nach dem Holzhacken: Wichtel am Kamin und Flammen aus dem Schornstein. */
   private fireplace: { window: Fireplace; flames: ChimneyFlames | null; day: number } | null = null
   /** Das selbst verzierte Lebkuchenhaus im Fenster von Haus 7. */
@@ -359,6 +403,8 @@ export class StreetScene {
   /** Easter Egg aus Haus 11: Der Weihnachtsmann fliegt beim Blick zum Baum darüber hinweg. */
   private flyby: { group: THREE.Group; t: number; active: boolean } | null = null
   private flybyEnabled = false
+  /** Easter Egg aus Haus 16: Rudolph und seine Freunde auf der Wiese gegenüber. */
+  private meadowHerd: MeadowHerd | null = null
   /** Easter Egg nach Haus 6: Eichhörnchen tauchen auf der Straße auf und lassen sich abwerfen. */
   private critter: {
     group: THREE.Group
@@ -390,8 +436,8 @@ export class StreetScene {
 
     this.scene.background = new THREE.Color(SKY.horizon)
     this.scene.fog = new THREE.FogExp2(SKY.horizon, 0.0085)
-    this.scene.add(new THREE.HemisphereLight('#b9c6ff', '#f6dccb', 2.4))
-    const moonlight = new THREE.DirectionalLight('#dfe5ff', 1.5)
+    this.scene.add(this.skyLight)
+    const moonlight = this.moonlight
     moonlight.position.set(-0.4, 0.8, 0.9)
     this.scene.add(moonlight)
 
@@ -478,6 +524,8 @@ export class StreetScene {
     const doorPivot = new THREE.Group()
     doorPivot.position.copy(anchors.hinge)
     doorPivot.add(new THREE.Mesh(geometry.door, this.solidMaterial))
+    const doorShine = this.createDoorShine()
+    doorPivot.add(doorShine.mesh)
     if (geometry.doorGlow) {
       const doorGlow = createGlowMaterial(this.time)
       materials.push(doorGlow)
@@ -490,7 +538,9 @@ export class StreetScene {
     if (anchors.hearth) this.hearths.set(spec.day, anchors.hearth)
     if (anchors.balcony) this.balconies.set(spec.day, anchors.balcony)
     this.eaves.set(spec.day, anchors.eaves)
+    this.facadeWindows.set(spec.day, anchors.windows)
     this.standSpots.set(spec.day, standOffset(anchors.doorX, spec.width))
+    this.doors.set(spec.day, anchors.doorX)
     let candles: Stop['candles'] = null
     if (geometry.candles) {
       // Kerzen brennen immer hell – auch an Häusern, deren Tag noch nicht gekommen ist.
@@ -513,7 +563,7 @@ export class StreetScene {
       candles,
       day: spec.day,
       group,
-      doors: [{ pivot: doorPivot, swing: DOOR_SWING }],
+      doors: [{ pivot: doorPivot, swing: DOOR_SWING, shine: doorShine.material }],
       entrance: {
         center: new THREE.Vector3(plot.x + anchors.doorX, 0, 0),
         normal: new THREE.Vector3(0, 0, 1),
@@ -663,6 +713,34 @@ export class StreetScene {
   }
 
   /** Das Licht hinter der Tür: eine helle Fläche plus Lichthof, der beim Öffnen anschwillt. */
+  /**
+   * Lichtschein auf der Innenseite der Haustür (Koordinaten des Scharniers): am Scharnier, direkt
+   * neben dem hellen Flur, am stärksten, zur Außenkante hin weich auslaufend. Additiv, damit er
+   * die Türfarbe nur aufhellt – so gibt es keinen harten Sprung vom Licht zur dunklen Tür.
+   */
+  private createDoorShine(): { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial } {
+    if (!this.doorShineGeometry) {
+      const b = new Builder()
+      const strips = 12
+      const warm = col('#ffcf86')
+      for (let i = 0; i < strips; i++) {
+        const k = 1 - (i + 0.5) / strips
+        const strength = 0.12 + 0.88 * k ** 1.6
+        const bottom = warm.clone().multiplyScalar(strength * 0.75)
+        const top = warm.clone().multiplyScalar(strength)
+        // Rückseite der Tür (z < 0), nach hinten zeigend
+        b.quad(((i + 0.5) / strips) * DOOR_WIDTH, DOOR_HEIGHT / 2, -0.034, DOOR_WIDTH / strips + 0.002, DOOR_HEIGHT, [bottom, top], { y: Math.PI })
+      }
+      this.doorShineGeometry = b.batch.build('glow')
+      this.disposables.push(this.doorShineGeometry)
+    }
+    const material = new THREE.MeshBasicMaterial({
+      vertexColors: true, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false,
+    })
+    this.disposables.push(material)
+    return { mesh: new THREE.Mesh(this.doorShineGeometry, material), material }
+  }
+
   private createDoorLight(): DoorLight {
     const texture = createDoorLightTexture()
     const portalGeometry = new THREE.PlaneGeometry(DOOR_WIDTH, DOOR_HEIGHT)
@@ -673,7 +751,9 @@ export class StreetScene {
     const builder = new Builder()
     const inside = { phase: 0, twinkle: 0, interior: 1 }
     const warm = col('#ffd98a')
-    builder.quad(0, 1.15, 0.5, 4.6, 5.4, haloOf(warm, 0.95), undefined, inside)
+    // Hinter dem Türblatt (zwischen Lichtfläche z 0,02 und Türinnenseite z 0,03): Die aufschwingende
+    // Tür verdeckt den Schein in jeder Stellung – so leuchtet ihre Außenseite nicht mit.
+    builder.quad(0, 1.15, 0.025, 4.6, 5.4, haloOf(warm, 0.95), undefined, inside)
     builder.quad(0, 0.07, 1.9, 3.6, 4.8, haloOf(warm, 0.7), FLAT, inside)
     const flareGeometry = builder.batch.build('glow')
     const flare = createGlowMaterial(this.time, { halo: true, fogAmount: 0 })
@@ -928,6 +1008,13 @@ export class StreetScene {
     this.panTween.set(this.panX)
     this.updateDoors()
     this.options.onLookChange(0)
+    // Gerade die Lichterkette entwirrt? Dann zum Baum schauen und zusehen, wie alles angeht.
+    if (this.lightsReveal && this.lightsReveal.t < 0) {
+      this.lightsReveal.t = 0
+      this.look(1)
+    }
+    // Gerade Geschenke-Tetris gelöst? Dann regnet es jetzt Geschenke vor die Haustüren.
+    if (this.presentDrop && this.presentDrop.t < 0) this.startPresentDrop()
     // Das Selfie ploppt noch einmal auf – jetzt sieht man es auch.
     if (stop.photo) {
       stop.photoPop.set(0)
@@ -1134,6 +1221,97 @@ export class StreetScene {
     this.santaWindows!.windows.update(this.time.value)
   }
 
+  /** Die Fenster von Haus `day` sind vereist und zugeschneit – mit null tauen sie auf. */
+  setFrostedWindows(day: number | null): void {
+    const windows = day === null ? undefined : this.facadeWindows.get(day)
+    if (!windows) {
+      if (this.frosted) this.frosted.windows.group.visible = false
+      return
+    }
+    if (this.frosted?.day !== day) {
+      if (this.frosted) {
+        this.frosted.windows.group.removeFromParent()
+        this.frosted.windows.dispose()
+      }
+      const frosted = createFrostedWindows(windows)
+      this.disposables.push(frosted)
+      this.stop(day!).group.add(frosted.group)
+      this.frosted = { windows: frosted, day: day! }
+    }
+    this.frosted!.windows.group.visible = true
+  }
+
+  /** Lichterketten an Häusern und Bäumen an- oder ausschalten (an erst nach Haus 3). */
+  setStringLights(on: boolean): void {
+    // Steht der große Auftritt noch aus oder läuft er gerade, bestimmt er selbst, was leuchtet.
+    if (this.lightsReveal) return
+    STRING_LIGHTS.value = on ? STRINGS_ON : STRINGS_OFF
+    this.sky.setChristmasStar(on)
+  }
+
+  /**
+   * Haus 3 wurde eben gelöst: Die Ketten bleiben noch aus. Sobald man wieder auf der Straße
+   * steht, dreht sich der Blick zum Baum und die Lichter gehen Haus für Haus an – 1 bis 24.
+   */
+  prepareLightsReveal(): void {
+    STRING_LIGHTS.value = STRINGS_OFF
+    this.sky.setChristmasStar(false)
+    const steps = this.revealSteps()
+    // Wann jeder Schritt dran ist: erst gemächlich, dann immer schneller.
+    const times: number[] = []
+    let at = REVEAL_DELAY
+    steps.forEach((_, i) => {
+      times.push(at)
+      at += REVEAL_STEP / REVEAL_SPEEDUP ** i
+    })
+    this.lightsReveal = { t: -1, steps, times }
+  }
+
+  /** Die Grenzen, bis zu denen nacheinander alles leuchtet: nach jedem Haus, dann Allee, Tor, Platz. */
+  private revealSteps(): number[] {
+    const { plots } = this.layout
+    const steps = plots.map((plot, i) => {
+      const next = plots[i + 1]
+      return next ? (plot.x + plot.spec.width / 2 + next.x - next.spec.width / 2) / 2 : plot.x + plot.spec.width / 2 + 0.5
+    })
+    // Die Allee in zwei Schritten, dann das Tor (24), die Laternen am Platz und zuletzt der große Baum
+    const end = steps[steps.length - 1]
+    const { gateX, treeX } = this.layout
+    steps.push(end + (gateX - end) / 2, gateX + 2, treeX - 3, STRINGS_ON)
+    return steps
+  }
+
+  /** Der Sternblitz erhellt kurz die ganze Straße in warmem Licht. */
+  private updateFlashLight(): void {
+    const flash = this.sky.flashLight()
+    this.skyLight.intensity = 2.4 * (1 + 0.9 * flash)
+    this.skyLight.color.set('#b9c6ff').lerp(FLASH_COLOR, flash * 0.8)
+    this.moonlight.intensity = 1.5 * (1 + 1.6 * flash)
+    this.moonlight.color.set('#dfe5ff').lerp(FLASH_COLOR, flash)
+  }
+
+  private updateLightsReveal(dt: number): void {
+    const reveal = this.lightsReveal
+    if (!reveal || reveal.t < 0) return
+    reveal.t += dt
+    let index = -1
+    while (index + 1 < reveal.times.length && reveal.t >= reveal.times[index + 1]) index++
+
+    if (index < 0) return
+    STRING_LIGHTS.value = reveal.steps[index]
+    // Ganz zum Schluss: der große Stern erscheint mit einem Lichtblitz.
+    if (index === reveal.steps.length - 1 && !reveal.starred) {
+      reveal.starred = true
+      this.sky.flashChristmasStar()
+    }
+    // Kurz bewundern, dann wieder zu den Häusern schauen.
+    if (index === reveal.steps.length - 1 && reveal.t > reveal.times[index] + REVEAL_LINGER) {
+      STRING_LIGHTS.value = STRINGS_ON
+      this.lightsReveal = null
+      this.look(0)
+    }
+  }
+
   /** Vor Tag 14 hat die Garage noch keinen Korb – im Spiel von Haus 14 wird er angeschraubt. */
   setGarageHoop(visible: boolean): void {
     if (!visible) {
@@ -1178,6 +1356,7 @@ export class StreetScene {
     if (offset === undefined) {
       if (this.gluehweinStand) this.gluehweinStand.group.visible = false
       if (this.inspecting?.id === 'gluehwein-stand') this.stopInspecting()
+      this.placePresentStacks()
       return
     }
     if (this.gluehweinStand?.day !== day) {
@@ -1189,6 +1368,7 @@ export class StreetScene {
       this.gluehweinStand = { group: stand.group, update: stand.update, day: day! }
     }
     this.gluehweinStand!.group.visible = true
+    this.placePresentStacks()
   }
 
   /** Nach dem Wohnzimmer-Abenteuer sitzt die Katze draußen auf dem Balkon von Haus `day` – mit null ist sie wieder drin. */
@@ -1226,6 +1406,82 @@ export class StreetScene {
     if (cat.day !== day || !cat.root.parent) this.stop(day!).group.add(cat.root)
     cat.day = day!
     cat.root.visible = true
+  }
+
+  /** Geschenke-Tetris geschafft: Vor jeder Haustür der Straße stapeln sich Geschenke – mit false sind sie wieder weg. */
+  setPresentStacks(enabled: boolean): void {
+    this.presentStacksOn = enabled
+    if (!enabled && this.inspecting?.id.startsWith('present-stack')) this.stopInspecting()
+    if (enabled && !this.presentStacks) {
+      this.presentStacks = [...this.doors].flatMap(([day, doorX]) =>
+        ([-1, 1] as const).map((side) => {
+          const geometry = buildEntrancePresents(day, doorX, side)
+          this.disposables.push(geometry)
+          const mesh = new THREE.Mesh(geometry, this.solidMaterial)
+          this.stop(day).group.add(mesh)
+          return { day, side, mesh }
+        }),
+      )
+    }
+    this.placePresentStacks()
+  }
+
+  /**
+   * Haus 23 wurde eben gelöst: Die Stapel warten noch hoch über den Dächern. Zurück auf der
+   * Straße fallen sie herunter – erst vor den Häusern in der Nähe, dann immer weiter weg.
+   */
+  preparePresentDrop(): void {
+    this.presentDrop = { t: -1, delays: [] }
+  }
+
+  private startPresentDrop(): void {
+    const drop = this.presentDrop
+    if (!drop) return
+    drop.t = 0
+    drop.delays = (this.presentStacks ?? []).map(({ day, side }) => {
+      const doorX = this.stop(day).group.position.x + (this.doors.get(day) ?? 0)
+      const jitter = ((day * 7 + (side + 1) * 3) % 10) / 10
+      return 0.6 + Math.min(4, Math.abs(doorX - this.panX) * 0.045) + jitter * 0.35
+    })
+  }
+
+  private updatePresentDrop(dt: number): void {
+    const drop = this.presentDrop
+    if (!drop || !this.presentStacks) return
+    if (drop.t >= 0) drop.t += dt
+    let falling = false
+    this.presentStacks.forEach(({ mesh }, i) => {
+      if (drop.t < 0) {
+        mesh.position.y = PRESENT_DROP_HEIGHT * 3
+        falling = true
+        return
+      }
+      const since = drop.t - drop.delays[i]
+      const landing = Math.sqrt((2 * PRESENT_DROP_HEIGHT) / PRESENT_GRAVITY)
+      if (since < landing) {
+        // Freier Fall aus dem Nachthimmel …
+        mesh.position.y = PRESENT_DROP_HEIGHT - 0.5 * PRESENT_GRAVITY * Math.max(0, since) ** 2
+        falling = true
+      } else {
+        // … und ein kleiner Hopser beim Aufsetzen.
+        const after = since - landing
+        mesh.position.y = Math.abs(Math.sin(after * 11)) * 0.22 * Math.exp(-after * 6)
+        if (after < 1) falling = true
+      }
+    })
+    if (!falling) {
+      for (const { mesh } of this.presentStacks) mesh.position.y = 0
+      this.presentDrop = null
+    }
+  }
+
+  /** Steht der Glühweinstand neben einer Tür, bleibt auf seiner Seite der Platz frei. */
+  private placePresentStacks(): void {
+    const stand = this.gluehweinStand?.group.visible ? this.gluehweinStand : null
+    for (const { day, side, mesh } of this.presentStacks ?? []) {
+      const blocked = stand?.day === day && Math.sign((this.standSpots.get(day) ?? 0) - (this.doors.get(day) ?? 0)) === side
+      mesh.visible = this.presentStacksOn && !blocked
+    }
   }
 
   private updateBalconyCat(): void {
@@ -1327,6 +1583,11 @@ export class StreetScene {
       const box = new THREE.Box3().setFromObject(conveyor.conveyor.group)
       list.push({ id: 'cakes', label: 'Kuchen-Förderband', object: conveyor.conveyor.group, view: front(box.getCenter(new THREE.Vector3()), 4.2) })
     }
+    const santaWindows = this.santaWindows
+    if (santaWindows?.windows.group.visible) {
+      const box = new THREE.Box3().setFromObject(santaWindows.windows.group)
+      list.push({ id: 'santa-windows', label: 'Santa hüpft im Obergeschoss', object: santaWindows.windows.group, view: front(box.getCenter(new THREE.Vector3()), 4.2) })
+    }
     const reindeer = this.reindeer
     if (reindeer?.group.visible) {
       list.push({ id: 'reindeer', label: 'Rentier im Giebel', object: reindeer.group, view: (out) => front(world(reindeer.group), 3.6, 38, -0.4)(out) })
@@ -1338,14 +1599,17 @@ export class StreetScene {
       const gapX = next ? (elf.cornerX + next.x - next.spec.width / 2) / 2 : elf.cornerX + 0.5
       list.push({
         id: 'elf',
-        label: 'Wichtel hinter Haus 3',
+        label: 'Wichtel hinter Haus 9',
         object: elf.mesh,
         hidden: true,
+        // Die Lücke ist schmal: ohne kleinere Nahgrenze schneidet die Kamera die Hauswand von Haus 10 an.
+        throughGap: true,
         view: (out) => {
-          // Durch die Lücke zwischen den Häusern nach hinten schauen.
+          // Durch die Lücke zwischen den Häusern nach hinten schauen – etwas rechts der Mitte,
+          // damit der Wichtel hinter der Ecke von Haus 9 zu sehen ist.
           const head = world(elf.mesh, 0.06, 1.05, 0)
           out.target.set(elf.cornerX + 0.1, head.y, head.z)
-          out.position.set(gapX + 0.15, 1.5, -(plot?.spec.depth ?? 4) + 2.4)
+          out.position.set(gapX + 0.13, 1.5, -(plot?.spec.depth ?? 4) + 2.4)
           out.fov = 42
         },
       })
@@ -1361,7 +1625,7 @@ export class StreetScene {
     const chain = this.lightChain
     if (chain?.group.visible) {
       const box = new THREE.Box3().setFromObject(chain.group)
-      list.push({ id: 'light-chain', label: 'Lichterkette an Haus 9', object: chain.group, view: front(box.getCenter(new THREE.Vector3()), 6.5, 40, -0.6) })
+      list.push({ id: 'light-chain', label: 'Lichterkette an Haus 3', object: chain.group, view: front(box.getCenter(new THREE.Vector3()), 6.5, 40, -0.6) })
     }
     const stand = this.gluehweinStand
     if (stand?.group.visible) {
@@ -1374,6 +1638,16 @@ export class StreetScene {
         label: 'Katze auf dem Balkon',
         object: balconyCat.root,
         view: (out) => front(world(balconyCat.group, 0, 0.3, 0), 2.4, 38, 0.15)(out),
+      })
+    }
+    for (const { day, side, mesh } of this.presentStacks ?? []) {
+      if (!mesh.visible) continue
+      const door = this.doors.get(day) ?? 0
+      list.push({
+        id: `present-stack-${day}${side < 0 ? 'l' : 'r'}`,
+        label: `Geschenke vor Haus ${day}`,
+        object: mesh,
+        view: (out) => front(world(mesh, door, 0.5, 1.1), 6, 38, 0.3)(out),
       })
     }
     const fireplace = this.fireplace
@@ -1604,6 +1878,31 @@ export class StreetScene {
     critter.squirrel.rotation.set(0, 0, 0)
   }
 
+  /**
+   * Lässt Rudolph und die fünf Rentiere aus dem Wimmelbild von Haus `day` auf der Wiese
+   * gegenüber den Häusern umherstreifen – rechts, wenn man zum Baum schaut. Mit null verschwinden sie.
+   */
+  setMeadowReindeer(day: number | null): void {
+    const plot = day === null ? undefined : this.layout.plots.find((p) => p.spec.day === day)
+    if (!plot) {
+      if (this.meadowHerd) this.meadowHerd.group.visible = false
+      return
+    }
+    if (!this.meadowHerd) {
+      // Etwas voraus: Wer vor Haus 16 zum Baum schaut, sieht sie rechts auf der Wiese grasen.
+      const maxX = Math.min(plot.x + 24, this.layout.gateX - 3)
+      this.meadowHerd = createMeadowHerd(this.solidMaterial, this.time, {
+        minX: Math.max(plot.x + 4, this.layout.cameraMinX),
+        maxX,
+        minZ: MEADOW_NEAR_Z,
+        maxZ: MEADOW_FAR_Z,
+      })
+      this.disposables.push(this.meadowHerd)
+      this.scene.add(this.meadowHerd.group)
+    }
+    this.meadowHerd.group.visible = true
+  }
+
   /** Setzt das Rentier mittig in den Giebel von Haus `day` – oder nimmt es mit null wieder weg. */
   setGableReindeer(day: number | null): void {
     if (day === null) {
@@ -1817,6 +2116,7 @@ export class StreetScene {
     this.updateElf(dt)
     this.updateCritter(dt)
     this.updateReindeer(dt)
+    if (this.meadowHerd?.group.visible) this.meadowHerd.update(dt)
     this.updateFlyby(dt)
     this.updateBalconyCat()
     if (this.conveyor?.conveyor.group.visible) this.conveyor.conveyor.update(this.time.value)
@@ -1824,6 +2124,8 @@ export class StreetScene {
     if (this.fireplace?.window.group.visible) this.fireplace.window.update(this.time.value)
     if (this.gluehweinStand?.group.visible) this.gluehweinStand.update(this.time.value)
     this.hoopShot?.update(dt)
+    this.updateLightsReveal(dt)
+    this.updatePresentDrop(dt)
     if (this.santaWindows?.windows.group.visible) this.santaWindows.windows.update(this.time.value)
 
     const pixelsPerUnit =
@@ -1831,6 +2133,7 @@ export class StreetScene {
       (2 * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)))
     this.fireplace?.flames?.update(pixelsPerUnit)
     this.sky.follow(this.camera, this.time.value)
+    this.updateFlashLight()
     this.snowfall.update(this.camera, pixelsPerUnit, this.pixelRatio)
     this.smoke.update(pixelsPerUnit)
 
@@ -1883,7 +2186,10 @@ export class StreetScene {
       // Zwischen Straßenansicht und Nahaufnahme überblenden.
       this.inspecting.view(this.inspectView)
       if (this.inspecting.throughGap) {
-        approachThroughGap(this.pose, this.inspectView, blend)
+        // Nur wo vor der Lücke wirklich eine Laterne steht, fährt die Kamera an ihr vorbei.
+        const gapX = this.inspectView.position.x
+        const lantern = this.lanternXs.some((x) => Math.abs(x - gapX) < 0.9)
+        approachThroughGap(this.pose, this.inspectView, blend, lantern)
       } else {
         this.pose.position.lerp(this.inspectView.position, blend)
         this.pose.target.lerp(this.inspectView.target, blend)
@@ -1911,7 +2217,11 @@ export class StreetScene {
     for (const stop of this.stops) {
       const held = stop === this.gate ? this.gateSwing.value : stop.heldDoor.value
       const amount = Math.max(held, stop === entering ? opening : 0)
-      for (const door of stop.doors) door.pivot.rotation.y = amount * door.swing
+      for (const door of stop.doors) {
+        door.pivot.rotation.y = amount * door.swing
+        // Das Licht aus dem Flur fällt auf die Innenseite der aufschwingenden Tür.
+        if (door.shine) door.shine.opacity = Math.min(1, amount * 1.15) * 0.8
+      }
       if (stop.entranceLight) {
         // Beim Betreten übernimmt der gemeinsame Effekt, damit sich das Licht nicht verdoppelt.
         stop.entranceLight.group.visible = amount > 0 && stop !== entering

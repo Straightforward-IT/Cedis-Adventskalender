@@ -347,8 +347,12 @@ function generateHouse(day: number, streetSeed: number, before: readonly HouseSp
 export function generateStreet(streetSeed: number = STREET_SEED): HouseSpec[] {
   const houses: HouseSpec[] = []
   for (let day = 1; day <= HOUSE_COUNT; day++) houses.push(generateHouse(day, streetSeed, houses))
-  return houses
+  // Erst danach angepasst, damit die Nachbarn genau so bleiben, wie sie ausgewürfelt wurden.
+  return houses.map((house) => (MIN_FLOORS[house.day] && house.floors < MIN_FLOORS[house.day]! ? { ...house, floors: MIN_FLOORS[house.day]! } : house))
 }
+
+/** Häuser, die mindestens so viele Stockwerke brauchen – Haus 16 hat einen Balkon im ersten Stock. */
+const MIN_FLOORS: Partial<Record<number, 2 | 3>> = { 16: 2 }
 
 /** Höhe der Fassade bis zur Dachkante. */
 export function bodyHeight(spec: HouseSpec): number {

@@ -1,16 +1,14 @@
 import { useEffect, useEffectEvent, useRef, useState } from 'react'
-import type { KeyboardEvent } from 'react'
+import type { PointerEvent } from 'react'
 import type { MinigameProps } from '../../types.ts'
 import { createMeter, openMicrophone, rms, updateMeter } from './mic.ts'
 import type { Microphone } from './mic.ts'
-import { blow, blownAway, CLEAR_AT, clearedFraction, COLS, isClear, MIN_STRENGTH, ROWS, snapshot, startSnow, sweep } from './model.ts'
+import { blow, blownAway, CLEAR_AT, clearedFraction, COLS, isClear, MIN_STRENGTH, ROWS, snapshot, startSnow, sweep, wipe } from './model.ts'
 import './snowwindow.css'
 
 type Phase = 'intro' | 'asking' | 'playing' | 'caught' | 'gone'
 type MicStatus = 'off' | 'live' | 'denied'
 
-/** Pustestärke des Ersatz-Knopfs für alle ohne Mikrofon. */
-const HOLD_STRENGTH = 0.7
 /** So lange schaut der Wichtel ertappt, bevor er abtaucht. */
 const CAUGHT_MS = 1500
 const SAVE_EVERY_MS = 1500
@@ -138,6 +136,38 @@ function stepFlakes(flakes: Flake[], snow: readonly number[], strength: number, 
   }
 }
 
+/** Wo der Schwamm wischt, bröselt Schnee ab und fällt nach unten. */
+function crumble(flakes: Flake[], x: number, y: number, amount: number) {
+  const count = Math.min(14, Math.round(amount / 25))
+  for (let n = 0; n < count && flakes.length < 220; n++) {
+    flakes.push({
+      x: x + (Math.random() - 0.5) * 0.12,
+      y: y + (Math.random() - 0.5) * 0.08,
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: 0.1 + Math.random() * 0.35,
+      life: 0.5 + Math.random() * 0.5,
+      r: 0.005 + Math.random() * 0.009,
+    })
+  }
+}
+
+/** Ein gelber Schwamm mit Löchern – folgt dem Finger und wackelt beim Wischen. */
+function Sponge() {
+  return (
+    <svg viewBox="0 0 80 56" aria-hidden="true">
+      <rect x="4" y="10" width="72" height="40" rx="10" fill="#e9b23c" />
+      <rect x="4" y="6" width="72" height="34" rx="10" fill="#ffd45e" />
+      <rect x="4" y="34" width="72" height="12" rx="6" fill="#3f8a4f" />
+      <g fill="#e0a92e">
+        <circle cx="18" cy="18" r="4" /><circle cx="34" cy="14" r="3" /><circle cx="52" cy="20" r="4.5" />
+        <circle cx="66" cy="13" r="2.5" /><circle cx="26" cy="28" r="3" /><circle cx="44" cy="29" r="2.5" />
+        <circle cx="62" cy="28" r="3" />
+      </g>
+      <path d="M12 9h40" stroke="#fff3c4" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  )
+}
+
 function Elf({ phase }: { phase: Phase }) {
   const caught = phase === 'caught' || phase === 'gone'
   return (
@@ -261,7 +291,9 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
   const painter = useRef<Painter>(null)
   const flakes = useRef<Flake[]>([])
   const microphone = useRef<Microphone | null>(null)
-  const holding = useRef(false)
+  /** Schwamm: wo der Finger zuletzt war (Anteile der Scheibe) und ob gerade gewischt wird. */
+  const sponge = useRef<HTMLDivElement>(null)
+  const wiping = useRef<{ id: number; x: number; y: number } | null>(null)
   const save = useEffectEvent(saveState)
 
   const redraw = () => {
@@ -314,11 +346,11 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
         live.analyser.getFloatTimeDomainData(samples)
         strength = updateMeter(meter, rms(samples), dt)
       }
-      if (holding.current) strength = Math.max(strength, HOLD_STRENGTH)
 
       const cells = snow.current
       if (sweeping) sweep(cells, dt)
       else {
+        // Was der Schwamm abwischt, ist schon direkt aus `cells` heraus – hier nur noch Pusten.
         blow(cells, strength, dt)
         sweeping = clearedFraction(cells) >= CLEAR_AT
       }
@@ -378,13 +410,53 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
     setPhase('playing')
   }
 
-  const hold = (on: boolean) => {
-    holding.current = on
+  /** Finger- bzw. Mausposition als Anteil der Scheibe (0–1). */
+  const glassPoint = (event: PointerEvent<HTMLDivElement>) => {
+    const rect = canvas.current!.getBoundingClientRect()
+    return { x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height }
   }
-  const onHoldKey = (event: KeyboardEvent, on: boolean) => {
-    if (event.key !== ' ' && event.key !== 'Enter') return
-    event.preventDefault()
-    if (!event.repeat) hold(on)
+
+  /** Der Schwamm folgt dem Zeiger über das ganze Fenster. */
+  const moveSponge = (event: PointerEvent<HTMLDivElement>, pressed: boolean) => {
+    const element = sponge.current
+    if (!element) return
+    const rect = event.currentTarget.getBoundingClientRect()
+    element.style.left = `${event.clientX - rect.left}px`
+    element.style.top = `${event.clientY - rect.top}px`
+    element.dataset.pressed = String(pressed)
+    element.dataset.visible = 'true'
+  }
+
+  const onWipeStart = (event: PointerEvent<HTMLDivElement>) => {
+    if (phase !== 'playing') return
+    try {
+      event.currentTarget.setPointerCapture(event.pointerId)
+    } catch {
+      // Ohne Capture endet der Wisch eben am Fensterrand.
+    }
+    const point = glassPoint(event)
+    wiping.current = { id: event.pointerId, ...point }
+    moveSponge(event, true)
+    const removed = wipe(snow.current, point, point)
+    crumble(flakes.current, point.x, point.y, removed)
+  }
+
+  const onWipeMove = (event: PointerEvent<HTMLDivElement>) => {
+    if (phase !== 'playing') return
+    const last = wiping.current
+    moveSponge(event, !!last && last.id === event.pointerId)
+    if (!last || last.id !== event.pointerId) return
+    const point = glassPoint(event)
+    const removed = wipe(snow.current, last, point)
+    crumble(flakes.current, point.x, point.y, removed)
+    wiping.current = { id: event.pointerId, ...point }
+  }
+
+  const onWipeEnd = (event: PointerEvent<HTMLDivElement>) => {
+    if (wiping.current?.id === event.pointerId) wiping.current = null
+    if (sponge.current) sponge.current.dataset.pressed = 'false'
+    // Auf dem Handy verschwindet der Schwamm mit dem Finger.
+    if (event.pointerType !== 'mouse' && sponge.current) sponge.current.dataset.visible = 'false'
   }
 
   const percent = Math.round(progress * 100)
@@ -393,12 +465,22 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
       : phase === 'asking' ? 'Bitte erlaube den Zugriff auf dein Mikrofon …'
         : phase === 'caught' ? 'Ein Wichtel! Ertappt!'
           : phase === 'gone' ? 'Husch – weg ist er!'
-            : mic === 'live' ? (power > 0.1 ? 'Weiter so – puste!' : 'Puste kräftig ins Mikrofon!')
-              : 'Halte den Knopf gedrückt und puste mit!'
+            : mic === 'live' ? (power > 0.1 ? 'Weiter so – puste!' : 'Puste kräftig ins Mikrofon – oder wisch mit dem Schwamm!')
+              : 'Wisch mit dem Schwamm über die Scheibe – hin und her, bis sie frei ist!'
 
   return (
     <div className="snowwin" data-phase={phase}>
-      <div className="snowwin__window">
+      <div
+        className="snowwin__window"
+        data-wipe={phase === 'playing'}
+        onPointerDown={onWipeStart}
+        onPointerMove={onWipeMove}
+        onPointerUp={onWipeEnd}
+        onPointerCancel={onWipeEnd}
+        onPointerLeave={(event) => {
+          if (event.pointerType === 'mouse' && !wiping.current && sponge.current) sponge.current.dataset.visible = 'false'
+        }}
+      >
         <svg className="snowwin__outside" viewBox={`0 0 ${VIEW.width} ${VIEW.height}`} role="img" aria-label={phase === 'gone' || phase === 'caught' ? 'Freies Fenster in einer Winternacht' : `Eingeschneites Fenster, ${percent} Prozent frei`}>
           <defs>
             <linearGradient id="snowwin-sky" x1="0" y1="0" x2="0" y2="1">
@@ -426,6 +508,11 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
           }}
         />
         <Frame />
+        {phase === 'playing' && (
+          <div ref={sponge} className="snowwin__sponge" data-visible="false" data-pressed="false" aria-hidden="true">
+            <Sponge />
+          </div>
+        )}
       </div>
 
       <p className="snowwin__status" role="status">{status}</p>
@@ -436,7 +523,7 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
             <span aria-hidden="true">🎤</span> Mikrofon erlauben & pusten
           </button>
           <button type="button" className="button button--quiet" onClick={startWithoutMic}>
-            Ohne Mikrofon spielen
+            <span aria-hidden="true">🧽</span> Mit dem Schwamm wischen
           </button>
           <p className="snowwin__note">Der Ton wird nur hier auf deinem Gerät gemessen – nichts wird aufgenommen oder gesendet.</p>
         </div>
@@ -452,22 +539,6 @@ export default function SnowWindowGame({ savedState, saveState, completedBefore,
           <div className="snowwin__progress" aria-label={`${percent} Prozent frei`}>
             <span style={{ width: `${percent}%` }} />
           </div>
-          {mic === 'denied' && (
-            <button
-              type="button"
-              className="button snowwin__hold"
-              onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); hold(true) }}
-              onPointerUp={() => hold(false)}
-              onPointerCancel={() => hold(false)}
-              onLostPointerCapture={() => hold(false)}
-              onKeyDown={(event) => onHoldKey(event, true)}
-              onKeyUp={(event) => onHoldKey(event, false)}
-              onBlur={() => hold(false)}
-              onContextMenu={(event) => event.preventDefault()}
-            >
-              <span aria-hidden="true">💨</span> Gedrückt halten zum Pusten
-            </button>
-          )}
         </div>
       )}
 
