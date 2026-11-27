@@ -145,7 +145,15 @@ npx cloudflared tunnel --url http://localhost:5180
 
 ## Veröffentlichen
 
-Beide Dienste bauen aus demselben Git-Repository (`git init`, falls noch nicht geschehen).
+Beide Dienste bauen aus demselben Git-Repository
+(`https://github.com/Straightforward-IT/Cedis-Adventskalender`). Veröffentlicht wird mit:
+
+```sh
+./scripts/deploy.sh "Was sich geändert hat"
+```
+
+Das Skript prüft Lint, Tests und Build, committet alles, pusht nach GitHub (Cloudflare Pages
+baut daraufhin das Frontend) und – falls der Remote `heroku` eingerichtet ist – nach Heroku.
 
 ### Backend auf Heroku
 
