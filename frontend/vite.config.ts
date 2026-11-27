@@ -1,6 +1,10 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 
+// Vorerst ist die Dev-Vorschau (/dev) auch im veröffentlichten Build erreichbar.
+// Abschalten: diese Zeile löschen – oder beim Bauen VITE_DEV_PREVIEW=false setzen.
+process.env.VITE_DEV_PREVIEW ??= 'true'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],

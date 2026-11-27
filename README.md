@@ -84,8 +84,13 @@ eine neue Runde; auch eine unterbrochene Wiederholung lässt sich fortsetzen. In
 wird der Zwischenstand auf dem Gerät gespeichert; in der Dev-Vorschau gilt weiterhin die oben
 beschriebene Isolation.
 
-Die Routen sind im lokalen Vite-Dev-Server aktiv. Normale Produktions-Builds aktivieren sie nicht.
-Für einen separaten, teilbaren Vorschau-Build:
+Die Routen sind im lokalen Vite-Dev-Server aktiv – und **vorerst auch im veröffentlichten
+Build**: `frontend/vite.config.ts` setzt `VITE_DEV_PREVIEW=true` als Standard, damit `/dev` in
+Produktion erreichbar ist. Zum Abschalten die Zeile dort löschen oder beim Bauen
+`VITE_DEV_PREVIEW=false` setzen (in Cloudflare als Build-Variable). Die Vorschau speichert nichts
+und fragt das Backend nicht – echte Türen öffnen weiterhin nur die QR-Codes.
+
+Lokal ausprobieren:
 
 ```sh
 VITE_DEV_PREVIEW=true npm --prefix frontend run build
