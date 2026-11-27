@@ -1,0 +1,277 @@
+/* Kamera-Dialoge: QR-Scanner und Selfie. */
+
+.camera {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 18px) calc(var(--safe-right) + 20px) calc(var(--safe-bottom) + 22px)
+    calc(var(--safe-left) + 20px);
+  background: #171a38;
+  color: var(--cream);
+  text-align: center;
+  animation: camera-in 0.25s ease-out both;
+}
+
+@keyframes camera-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.camera__video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera__shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(rgb(23 26 56 / 0.82), rgb(23 26 56 / 0.1) 30%, rgb(23 26 56 / 0.1) 62%, rgb(23 26 56 / 0.88));
+}
+
+.camera__header,
+.camera__footer {
+  position: relative;
+  z-index: 1;
+}
+
+.camera__header {
+  padding: 0 44px;
+}
+
+.camera__header h2 {
+  font-size: 1.5rem;
+}
+
+.camera__header p {
+  max-width: 340px;
+  margin: 6px auto 0;
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.camera__close {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: rgb(255 246 230 / 0.16);
+  color: var(--cream);
+}
+
+.camera__close svg {
+  width: 24px;
+  height: 24px;
+}
+
+/* Sucherrahmen mit vier Ecken */
+.camera__frame {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: min(66vw, 280px);
+  aspect-ratio: 1;
+  border-radius: 28px;
+  background:
+    linear-gradient(var(--cream) 0 0) top left / 44px 5px,
+    linear-gradient(var(--cream) 0 0) top left / 5px 44px,
+    linear-gradient(var(--cream) 0 0) top right / 44px 5px,
+    linear-gradient(var(--cream) 0 0) top right / 5px 44px,
+    linear-gradient(var(--cream) 0 0) bottom left / 44px 5px,
+    linear-gradient(var(--cream) 0 0) bottom left / 5px 44px,
+    linear-gradient(var(--cream) 0 0) bottom right / 44px 5px,
+    linear-gradient(var(--cream) 0 0) bottom right / 5px 44px;
+  background-repeat: no-repeat;
+  box-shadow: 0 0 0 100vmax rgb(23 26 56 / 0.35);
+  overflow: hidden;
+}
+
+.camera__frame[data-state='unavailable'] {
+  visibility: hidden;
+}
+
+.camera__frame[data-state='scanning']::after {
+  content: '';
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--gold);
+  box-shadow: 0 0 14px 3px rgb(232 176 74 / 0.7);
+  animation: scan-line 2.2s ease-in-out infinite;
+}
+
+@keyframes scan-line {
+  0%,
+  100% {
+    top: 12%;
+  }
+  50% {
+    top: 86%;
+  }
+}
+
+.camera__footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.camera__choices {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.camera__hint {
+  max-width: 340px;
+  padding: 10px 16px;
+  border-radius: 16px;
+  background: rgb(255 246 230 / 0.94);
+  color: #8a2f25;
+  font-weight: 700;
+}
+
+.camera__form {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  width: min(100%, 320px);
+}
+
+.camera__form label {
+  font-weight: 700;
+}
+
+.camera__form input {
+  height: 54px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--cream);
+  color: var(--cocoa);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 1.25rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  text-transform: uppercase;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.camera__form input::placeholder {
+  color: rgb(75 51 43 / 0.35);
+}
+
+.button--ghost {
+  background: rgb(255 246 230 / 0.16);
+  color: var(--cream);
+  box-shadow: inset 0 0 0 2px rgb(255 246 230 / 0.55);
+}
+
+.button--ghost:active {
+  transform: none;
+  background: rgb(255 246 230 / 0.28);
+  box-shadow: inset 0 0 0 2px rgb(255 246 230 / 0.55);
+}
+
+.link--light {
+  color: var(--cream);
+}
+
+/* --------------------------------------------------------------- Selfie */
+
+.camera--selfie {
+  background: radial-gradient(120% 90% at 50% 30%, #3b3f7c, #1b1e42);
+}
+
+.selfie {
+  position: relative;
+  align-self: center;
+  width: min(74vw, 46vh, 330px);
+  aspect-ratio: 1;
+}
+
+.selfie__portrait {
+  position: absolute;
+  inset: 9%;
+  overflow: hidden;
+  border-radius: 50%;
+  background: #262a55;
+}
+
+.selfie__video,
+.selfie__photo,
+.selfie__placeholder img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Spiegelbild – so, wie man sich vom Blick in den Spiegel kennt. */
+.selfie__video {
+  transform: scaleX(-1);
+}
+
+.selfie__placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18%;
+  background: #262a55;
+  font-weight: 700;
+}
+
+.selfie__placeholder img {
+  opacity: 0.55;
+}
+
+.selfie__placeholder .spinner {
+  border-color: rgb(255 246 230 / 0.25);
+  border-top-color: var(--cream);
+}
+
+.selfie__wreath {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 8px 16px rgb(10 8 30 / 0.45));
+}
+
+.shutter {
+  width: 76px;
+  height: 76px;
+  border: 5px solid var(--cream);
+  border-radius: 50%;
+  background: var(--berry);
+  box-shadow: inset 0 0 0 4px #1b1e42;
+  transition: transform 0.12s ease;
+}
+
+.shutter:active {
+  transform: scale(0.92);
+}
+
+.shutter:disabled {
+  opacity: 0.45;
+}

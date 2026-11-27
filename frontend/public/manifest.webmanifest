@@ -1,0 +1,14 @@
+{
+  "name": "Die Weihnachtsstraße",
+  "short_name": "Weihnachtsstraße",
+  "description": "Ein Adventskalender zum Spazierengehen: 24 Häuser, 24 Türchen.",
+  "lang": "de",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#22264f",
+  "theme_color": "#22264f",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

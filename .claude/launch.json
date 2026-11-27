@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "weihnachtsstrasse",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "PORT=2412 npm run dev"],
+      "port": 5180
+    }
+  ]
+}

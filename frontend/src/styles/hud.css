@@ -1,0 +1,430 @@
+/* Alles, was über der Straße schwebt: Titel, Schnee-o-Meter, Fortschritt. */
+
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: calc(var(--safe-top) + 14px) calc(var(--safe-right) + 14px) calc(var(--safe-bottom) + 14px)
+    calc(var(--safe-left) + 14px);
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+}
+
+.hud[data-visible='false'] {
+  opacity: 0;
+}
+
+.hud button {
+  pointer-events: auto;
+}
+
+.hud__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.hud__title h1 {
+  color: var(--cream);
+  font-size: clamp(1.45rem, 6.4vw, 2.3rem);
+  letter-spacing: 0.01em;
+  text-shadow:
+    0 2px 0 rgb(34 38 79 / 0.5),
+    0 6px 18px rgb(34 38 79 / 0.55);
+}
+
+.hud__title p {
+  margin-top: 3px;
+  color: #f1e9f8;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-shadow: 0 1px 8px rgb(34 38 79 / 0.8);
+}
+
+.hud__hint,
+.hud__notice {
+  align-self: center;
+  max-width: 320px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgb(34 38 79 / 0.62);
+  color: var(--cream);
+  font-weight: 700;
+  text-align: center;
+}
+
+.hud__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  max-width: none;
+  margin-top: auto;
+  margin-bottom: 18px;
+  font-size: 0.92rem;
+  white-space: nowrap;
+  animation: hint-sway 2.6s ease-in-out infinite;
+}
+
+.hud__hint svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.hud__notice {
+  border-radius: 20px;
+}
+
+@keyframes hint-sway {
+  0%,
+  100% {
+    transform: translateX(-7px);
+  }
+  50% {
+    transform: translateX(7px);
+  }
+}
+
+.hud__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hud__row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 16px 0 13px;
+  border-radius: 999px;
+  background: rgb(255 246 230 / 0.95);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgb(24 20 54 / 0.32);
+  transition: transform 0.12s ease;
+}
+
+.chip:active {
+  transform: scale(0.96);
+}
+
+.chip svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--berry);
+}
+
+.chip[aria-pressed='true'] {
+  background: var(--berry);
+  color: var(--cream);
+}
+
+.chip[aria-pressed='true'] svg {
+  color: var(--cream);
+}
+
+/* ------------------------------------------------- Fortschrittsleiste */
+
+.strip {
+  display: flex;
+  align-items: center;
+  height: 42px;
+  max-width: 560px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgb(34 38 79 / 0.55);
+}
+
+.strip__dot {
+  position: relative;
+  flex: 1;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.strip__dot::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px rgb(255 246 230 / 0.6);
+}
+
+/* Der letzte Punkt ist das Tor zum Weihnachtsbaum – ein Stern. */
+.strip__dot[data-gate]::before {
+  width: 13px;
+  height: 13px;
+  border-radius: 0;
+  background: rgb(255 246 230 / 0.5);
+  box-shadow: none;
+  clip-path: polygon(50% 0%, 62% 35%, 98% 35%, 68% 57%, 79% 92%, 50% 71%, 21% 92%, 32% 57%, 2% 35%, 38% 35%);
+}
+
+.strip__dot[data-status='available']::before {
+  background: var(--cream);
+  box-shadow: none;
+}
+
+.strip__dot[data-status='unlocked']::before {
+  background: var(--gold);
+  box-shadow: none;
+}
+
+.strip__dot[data-status='completed']::before {
+  background: #8fdcae;
+  box-shadow: none;
+}
+
+.strip__number {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--cream);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 0 0 2.5px var(--berry);
+}
+
+/* ------------------------------------------------------ Schnee-o-Meter */
+
+.snow {
+  position: relative;
+  flex: none;
+}
+
+.snow__chip {
+  padding-left: 8px;
+}
+
+.snow__globe {
+  flex: none;
+  width: 30px;
+  height: 34px;
+}
+
+.snow__value {
+  font-size: 1.05rem;
+}
+
+.snow__backdrop {
+  position: fixed;
+  inset: 0;
+  cursor: default;
+}
+
+.snow__card {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: min(290px, calc(100vw - 28px));
+  padding: 18px 20px 14px;
+  border-radius: var(--radius);
+  background: var(--cream);
+  box-shadow: var(--shadow);
+  text-align: center;
+  pointer-events: auto;
+  animation: card-pop 0.22s ease-out both;
+  transform-origin: top right;
+}
+
+@keyframes card-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.snow__card h2 {
+  font-size: 1.2rem;
+}
+
+.snow__reading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 12px 0 6px;
+}
+
+.snow__reading .snow__globe {
+  width: 62px;
+  height: 70px;
+}
+
+.snow__reading strong {
+  font-family: var(--font-display);
+  font-size: 2.6rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.snow__verdict {
+  font-weight: 700;
+}
+
+.snow__facts {
+  display: flex;
+  justify-content: center;
+  gap: 22px;
+  margin: 12px 0 10px;
+}
+
+.snow__facts dt {
+  color: var(--cocoa-soft);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.snow__facts dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.snow__source {
+  color: var(--cocoa-soft);
+  font-size: 0.74rem;
+}
+
+/* ---------------------------------------------------------------- Toast */
+
+.toast {
+  position: absolute;
+  top: calc(var(--safe-top) + 16px);
+  left: 0;
+  right: 0;
+  z-index: 9;
+  display: flex;
+  justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+
+.toast p {
+  max-width: 420px;
+  padding: 11px 20px;
+  border-radius: 999px;
+  background: var(--pine);
+  color: var(--cream);
+  font-weight: 800;
+  text-align: center;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px);
+  }
+}
+
+.spinner {
+  display: inline-block;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgb(75 51 43 / 0.2);
+  border-top-color: var(--berry);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ------------------------------------------------ Eichhörnchen-Zähler */
+
+.hud__chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.squirrels {
+  padding-left: 6px;
+}
+
+.squirrels__head {
+  flex: none;
+  width: 32px;
+  height: 32px;
+}
+
+.squirrels__count {
+  display: inline-block;
+  font-size: 1.05rem;
+  animation: squirrels-bump 0.4s ease-out;
+}
+
+@keyframes squirrels-bump {
+  0% { transform: scale(1.6); color: var(--berry); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .squirrels__count { animation: none; }
+}
+
+/* ------------------------------------------------ Nahaufnahme eines Easter Eggs */
+
+.inspect {
+  position: fixed;
+  left: 50%;
+  bottom: calc(18px + var(--safe-bottom));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  translate: -50% 0;
+  animation: inspect-in 0.4s ease-out;
+}
+
+.inspect__label {
+  padding: 4px 14px;
+  border-radius: 999px;
+  background: rgb(34 38 79 / 0.6);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+@keyframes inspect-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inspect { animation: none; }
+}

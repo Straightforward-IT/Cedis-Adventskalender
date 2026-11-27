@@ -1,0 +1,224 @@
+:root {
+  --cream: #fff6e6;
+  --paper: #f8ead2;
+  --cocoa: #4b332b;
+  --cocoa-soft: #846a5e;
+  --berry: #c2483c;
+  --berry-dark: #a13a30;
+  --pine: #3f6f57;
+  --gold: #e8b04a;
+  --night: #22264f;
+  --dusk: #5d5a9c;
+
+  --font-display: 'Fredoka Variable', 'Fredoka', ui-rounded, system-ui, sans-serif;
+  --font-body: 'Nunito Variable', 'Nunito', system-ui, sans-serif;
+
+  --radius: 24px;
+  --shadow: 0 12px 34px rgb(24 20 54 / 0.34);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+html {
+  /* Handys sollen Texte nicht eigenmächtig vergrößern. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--night);
+  color: var(--cocoa);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 3px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.app {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: linear-gradient(var(--night), var(--dusk));
+}
+
+.street {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.street[data-ready='true'] {
+  opacity: 1;
+}
+
+.street__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  text-align: center;
+  animation: loading-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes loading-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* Leichte Vignette – rückt die Straße in ein weiches Abendlicht. */
+.app::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 46%, transparent 52%, rgb(24 20 54 / 0.34) 100%);
+}
+
+/* ------------------------------------------------------------ Knöpfe */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  min-height: 52px;
+  padding: 0 1.5em;
+  border-radius: 999px;
+  background: var(--berry);
+  color: var(--cream);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  box-shadow: 0 4px 0 var(--berry-dark);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+
+.button:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 var(--berry-dark);
+}
+
+.button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.button--quiet {
+  min-height: 44px;
+  background: rgb(75 51 43 / 0.08);
+  color: var(--cocoa);
+  font-size: 1rem;
+  box-shadow: none;
+}
+
+.button--quiet:active {
+  transform: none;
+  background: rgb(75 51 43 / 0.16);
+  box-shadow: none;
+}
+
+.button svg {
+  flex: none;
+  width: 1.3em;
+  height: 1.3em;
+}
+
+.link {
+  color: var(--cocoa-soft);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  min-height: 44px;
+  padding: 0 0.5em;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

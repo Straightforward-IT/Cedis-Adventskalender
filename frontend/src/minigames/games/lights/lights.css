@@ -1,0 +1,148 @@
+/* Lichterketten-Schlamassel: Stränge entwirren, einstecken – dann leuchten die Lämpchen. */
+
+.lights {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+
+.lights__board {
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 8px 22px rgb(60 40 30 / 0.22);
+}
+
+.lights__board svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.lights__board svg[data-dragging='true'] {
+  cursor: grabbing;
+}
+
+.lights-label {
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 600;
+  fill: #8a5a2e;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.lights-plug__pulse {
+  fill: none;
+  stroke: #fff6c8;
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lights-pulse 1.6s ease-out infinite;
+}
+
+@keyframes lights-pulse {
+  0% { transform: scale(0.6); opacity: 0.95; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.lights-plug[data-active='true'] {
+  filter: drop-shadow(0 3px 4px rgb(40 20 10 / 0.45));
+}
+
+/* Aus: blasses, getöntes Glas. An: kräftige Farbe mit Lichthof, leicht funkelnd. */
+.lights-lamp__bulb {
+  fill: color-mix(in srgb, var(--lamp) 38%, #d9d4cb);
+  stroke: rgb(40 30 20 / 0.35);
+  stroke-width: 1;
+}
+
+.lights-lamp[data-lit='true'] .lights-lamp__bulb {
+  fill: color-mix(in srgb, var(--lamp) 75%, #fff);
+  stroke: var(--lamp);
+  animation: lights-on 0.5s var(--delay) ease-out backwards;
+}
+
+.lights-lamp__glow {
+  fill: var(--lamp);
+  opacity: 0.55;
+  filter: url(#lights-bloom);
+  animation:
+    lights-on 0.5s var(--delay) ease-out backwards,
+    lights-twinkle 2.2s var(--twinkle) ease-in-out infinite;
+}
+
+@keyframes lights-on {
+  from { opacity: 0; }
+}
+
+@keyframes lights-twinkle {
+  50% { opacity: 0.3; }
+}
+
+.lights-dusk {
+  fill: #0d1430;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.2s ease-in-out;
+}
+
+.lights__board[data-done='true'] .lights-dusk {
+  opacity: 0.55;
+}
+
+.lights-switch {
+  animation: lights-blink 2.4s ease-in-out infinite;
+}
+
+@keyframes lights-blink {
+  50% { opacity: 0.45; }
+}
+
+.lights__status {
+  min-height: 1.5em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--cocoa);
+}
+
+.lights__status[data-tone='hint'] {
+  color: var(--berry);
+}
+
+.lights__status[data-tone='good'],
+.lights__status[data-tone='done'] {
+  color: var(--pine);
+}
+
+.lights__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.lights__hint {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--cocoa-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lights-plug__pulse,
+  .lights-lamp__glow,
+  .lights-lamp[data-lit='true'] .lights-lamp__bulb,
+  .lights-switch {
+    animation: none;
+  }
+}

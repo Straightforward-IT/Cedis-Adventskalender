@@ -1,0 +1,169 @@
+/* Schneeballschlacht gegen die Eichhörnchen. */
+
+.snowball {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+
+.snowball__view {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  aspect-ratio: 4 / 3;
+  max-height: 64vh;
+  overflow: hidden;
+  border-radius: 20px;
+  background: #2a2e62;
+  box-shadow: 0 10px 26px rgb(10 10 30 / 0.35);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.snowball__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.snowball__score {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px 6px 8px;
+  border-radius: 999px;
+  background: rgb(255 246 230 / 0.92);
+  color: var(--cocoa);
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  pointer-events: none;
+}
+
+.snowball__head {
+  width: 30px;
+  height: 30px;
+}
+
+.snowball__count {
+  display: inline-block;
+  font-weight: 700;
+  animation: snowball-bump 0.35s ease-out;
+}
+
+.snowball__goal {
+  color: var(--cocoa-soft);
+  font-size: 0.95rem;
+}
+
+@keyframes snowball-bump {
+  0% { transform: scale(1.7); color: var(--berry); }
+  100% { transform: scale(1); }
+}
+
+/* Unterer Streifen: Vorrat und Rollzone */
+.snowball__roll {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 24%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 14px;
+  border-top: 2px dashed rgb(255 255 255 / 0.55);
+  background: linear-gradient(rgb(255 255 255 / 0), rgb(255 255 255 / 0.28));
+  cursor: grab;
+  pointer-events: none;
+}
+
+.snowball__roll[data-full='true'] {
+  border-top-color: transparent;
+  background: none;
+}
+
+.snowball__ammo {
+  display: flex;
+  gap: 8px;
+}
+
+.snowball__ammo span {
+  width: 26px;
+  height: 26px;
+  border: 2px solid rgb(255 255 255 / 0.85);
+  border-radius: 50%;
+  background: rgb(30 34 80 / 0.35);
+}
+
+.snowball__ammo span[data-filled='true'] {
+  background: radial-gradient(circle at 35% 35%, #fff 0 40%, #dfe6f5 75%, #b8c4dc 100%);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+}
+
+.snowball__ammo span[data-empty-flash] {
+  animation: snowball-empty 0.4s ease;
+}
+
+@keyframes snowball-empty {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); border-color: var(--berry); }
+  75% { transform: translateX(4px); border-color: var(--berry); }
+}
+
+.snowball__forming {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-family: var(--font-display);
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
+}
+
+.snowball__forming span {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff 0 40%, #dfe6f5 75%, #b8c4dc 100%);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.25);
+  transition: transform 0.08s linear;
+}
+
+.snowball__forming em {
+  font-style: normal;
+}
+
+.snowball__skip {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: rgb(10 12 30 / 0.55);
+  color: #fff;
+  font-family: var(--font-display);
+  cursor: pointer;
+}
+
+.snowball__hint {
+  min-height: 1.5em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--cocoa);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snowball__count,
+  .snowball__ammo span[data-empty-flash] {
+    animation: none;
+  }
+}

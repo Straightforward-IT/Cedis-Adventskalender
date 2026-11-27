@@ -1,0 +1,142 @@
+/* Karte des Hauses, vor dessen Tür man steht. */
+
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 44px 24px calc(var(--safe-bottom) + 22px);
+  border-radius: 30px 30px 0 0;
+  background: var(--cream);
+  box-shadow: 0 -10px 40px rgb(24 20 54 / 0.38);
+  text-align: center;
+  animation: panel-up 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.08) both;
+}
+
+@keyframes panel-up {
+  from {
+    transform: translateY(110%);
+  }
+}
+
+.panel__badge {
+  position: absolute;
+  top: -34px;
+  left: 50%;
+  display: grid;
+  place-items: center;
+  width: 68px;
+  height: 68px;
+  margin-left: -34px;
+  border: 5px solid var(--berry);
+  border-radius: 50%;
+  background: var(--cream);
+  box-shadow:
+    0 0 0 5px var(--cream),
+    0 6px 16px rgb(24 20 54 / 0.3);
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.panel__close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  color: var(--cocoa-soft);
+}
+
+.panel__close:active {
+  background: rgb(75 51 43 / 0.1);
+}
+
+.panel__close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.panel h2 {
+  font-size: 1.6rem;
+}
+
+.panel__date {
+  color: var(--cocoa-soft);
+  font-weight: 700;
+}
+
+.panel__notice {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: #fbe3d6;
+  color: #8a2f25;
+  font-weight: 700;
+}
+
+.panel__notice[data-tone='info'] {
+  background: #e4ecf9;
+  color: #2f4573;
+}
+
+.panel__actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.panel__text {
+  font-size: 1.05rem;
+}
+
+.panel__text--busy {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 52px;
+  font-weight: 700;
+}
+
+.panel__countdown {
+  align-self: center;
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: var(--paper);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Im Querformat sitzt die Karte rechts neben der Tür statt darunter. */
+@media (min-width: 700px) and (min-aspect-ratio: 1/1) {
+  .panel {
+    left: auto;
+    right: calc(var(--safe-right) + 28px);
+    bottom: auto;
+    /* Mittig, egal wie viele Knöpfe die Karte trägt – etwas tiefer, wegen der Plakette obenauf. */
+    top: calc(50% + 17px);
+    translate: 0 -50%;
+    width: 350px;
+    margin: 0;
+    padding-bottom: 24px;
+    border-radius: 30px;
+    animation-name: panel-side;
+  }
+
+  @keyframes panel-side {
+    from {
+      opacity: 0;
+      transform: translateX(40px);
+    }
+  }
+}

@@ -1,0 +1,274 @@
+/* Punkt für Punkt: ein Rentierkopf im Schnee. */
+
+.dots {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: center;
+}
+
+.dots__board {
+  width: 100%;
+  max-width: 440px;
+  overflow: hidden;
+  border-radius: 22px;
+  background: radial-gradient(120% 90% at 50% 10%, #eef4fb 0%, #d4e3f1 70%, #c3d6ea 100%);
+  box-shadow: inset 0 0 0 2px rgb(255 255 255 / 0.8), 0 8px 22px rgb(60 80 120 / 0.18);
+}
+
+.dots__board svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  cursor: crosshair;
+  touch-action: manipulation;
+}
+
+.dots[data-done='true'] .dots__board svg {
+  cursor: default;
+}
+
+/* ------------------------------------------------------- Linien */
+
+.dots-line {
+  fill: none;
+  stroke: #6b4129;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dots[data-done='true'] .dots-line {
+  stroke: #5a3a26;
+  stroke-width: 5;
+}
+
+.dots-rubber {
+  stroke: #6b4129;
+  stroke-width: 3;
+  stroke-dasharray: 2 9;
+  stroke-linecap: round;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.dots-wrong-line {
+  stroke: var(--berry);
+  stroke-width: 4.5;
+  stroke-linecap: round;
+  stroke-dasharray: 10 8;
+  pointer-events: none;
+  animation: dots-erase 0.65s ease-in forwards;
+}
+
+@keyframes dots-erase {
+  0%, 45% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* -------------------------------------------------------- Punkte */
+
+.dots-dot {
+  outline: none;
+  cursor: pointer;
+}
+
+.dots-dot__core {
+  fill: #fffaf0;
+  stroke: #6b4129;
+  stroke-width: 3;
+  transform-box: fill-box;
+  transform-origin: center;
+  transition: transform 0.15s ease, fill 0.15s ease;
+}
+
+.dots-dot[data-connected='true'] .dots-dot__core {
+  fill: #6b4129;
+}
+
+.dots-dot[data-current='true'] .dots-dot__core {
+  fill: var(--berry);
+  stroke: #fff;
+  transform: scale(1.35);
+}
+
+.dots-dot[data-hover='true'] .dots-dot__core,
+.dots-dot:focus-visible .dots-dot__core {
+  transform: scale(1.45);
+}
+
+.dots-dot:focus-visible .dots-dot__core {
+  stroke: #ba7741;
+  stroke-width: 4;
+}
+
+.dots-dot[data-wrong='true'] .dots-dot__core {
+  fill: var(--berry);
+  animation: dots-shake 0.4s ease;
+}
+
+@keyframes dots-shake {
+  0%, 100% { translate: 0; }
+  25% { translate: -4px; }
+  75% { translate: 4px; }
+}
+
+.dots-dot__start polygon {
+  fill: var(--gold);
+  stroke: #9a6a1c;
+  stroke-width: 2;
+  stroke-linejoin: round;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dots-pulse 1.6s ease-in-out infinite;
+}
+
+.dots-dot__hint {
+  fill: rgb(232 176 74 / 0.3);
+  stroke: var(--gold);
+  stroke-width: 4;
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dots-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes dots-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.25); }
+}
+
+/* ---------------------------------------------------- Fertiges Bild */
+
+.dots-art {
+  animation: dots-reveal 0.9s ease-out both;
+}
+
+.dots-art__antler {
+  fill: #ecd5a8;
+  stroke: #b08b5c;
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.dots-art__nose {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dots-glow 1.8s ease-in-out 0.9s infinite;
+}
+
+.dots-art__sparkles polygon {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: dots-twinkle 2.4s ease-in-out infinite;
+}
+
+.dots-art__sparkles polygon:nth-child(2n) {
+  animation-delay: 1.2s;
+}
+
+@keyframes dots-reveal {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dots-glow {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 #ff5a4a); }
+  50% { transform: scale(1.08); filter: drop-shadow(0 0 8px #ff5a4a); }
+}
+
+@keyframes dots-twinkle {
+  0%, 100% { transform: scale(0.7); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 1; }
+}
+
+/* --------------------------------------------- Status und Steuerung */
+
+.dots__status {
+  min-height: 1.5em;
+  max-width: 420px;
+  font-weight: 700;
+}
+
+.dots__status[data-tone='wrong'] {
+  color: var(--berry-dark);
+}
+
+.dots__status[data-tone='hint'] {
+  color: #9a6a1c;
+}
+
+.dots__status[data-tone='done'] {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  color: var(--pine);
+}
+
+.dots__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px 18px;
+  width: 100%;
+  max-width: 440px;
+}
+
+.dots__progress {
+  flex: 1 1 140px;
+  height: 10px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(107 65 41 / 0.15);
+}
+
+.dots__progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--pine), #5c9a7a);
+  transition: width 0.25s ease;
+}
+
+.dots__misses {
+  display: flex;
+  gap: 4px;
+  font-size: 1.15rem;
+}
+
+.dots__misses span {
+  color: rgb(107 65 41 / 0.25);
+  transition: color 0.2s ease;
+}
+
+.dots__misses span[data-used='true'] {
+  color: var(--berry);
+}
+
+.dots__restart {
+  padding: 6px 12px;
+  border: 1px solid rgb(107 65 41 / 0.3);
+  border-radius: 999px;
+  color: var(--cocoa);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.9rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dots__restart:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots-dot__start polygon,
+  .dots-dot__hint,
+  .dots-art__nose,
+  .dots-art__sparkles polygon,
+  .dots-dot[data-wrong='true'] .dots-dot__core {
+    animation: none;
+  }
+}

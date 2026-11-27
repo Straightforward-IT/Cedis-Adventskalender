@@ -1,0 +1,124 @@
+/* Lebkuchenhaus: bauen und verzieren. */
+
+.ginger {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: center;
+}
+
+.ginger__board {
+  width: 100%;
+  max-width: 560px;
+  overflow: hidden;
+  border-radius: 20px;
+  box-shadow: 0 8px 22px rgb(60 40 30 / 0.22);
+}
+
+.ginger__board svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.ginger-ghost {
+  fill: rgb(138 79 34 / 0.06);
+  stroke: rgb(138 79 34 / 0.28);
+  stroke-width: 2;
+  stroke-dasharray: 6 5;
+  transition: stroke 0.15s ease, fill 0.15s ease;
+}
+
+.ginger-ghost[data-ready='true'] {
+  stroke: rgb(138 79 34 / 0.55);
+}
+
+.ginger-ghost[data-target='true'] {
+  fill: rgb(232 176 74 / 0.25);
+  stroke: var(--gold);
+  stroke-width: 3;
+}
+
+.ginger-piece[data-settled='true'] {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: ginger-settle 0.35s ease-out;
+}
+
+@keyframes ginger-settle {
+  0% { transform: scale(1.06) translateY(-4px); }
+  60% { transform: scale(0.98); }
+  100% { transform: none; }
+}
+
+.ginger-tray-piece,
+.ginger-tray-candy,
+.ginger-candy {
+  cursor: grab;
+  outline: none;
+}
+
+.ginger-tile {
+  fill: rgb(255 240 215 / 0.16);
+  stroke: rgb(255 240 215 / 0.32);
+  stroke-width: 1.5;
+}
+
+.ginger-tray-piece:hover .ginger-tile,
+.ginger-tray-candy:hover .ginger-tile {
+  fill: rgb(255 240 215 / 0.26);
+}
+
+.ginger-tray-piece[data-dragging='true'] {
+  cursor: grabbing;
+  filter: drop-shadow(0 6px 6px rgb(60 30 10 / 0.35));
+}
+
+.ginger-tray-piece:focus-visible,
+.ginger-tray-candy:focus-visible {
+  filter: drop-shadow(0 0 4px var(--gold));
+}
+
+.ginger-icing {
+  animation: ginger-icing 0.5s ease-out;
+}
+
+@keyframes ginger-icing {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.ginger__status {
+  min-height: 1.5em;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  color: var(--cocoa);
+}
+
+.ginger__status[data-tone='hint'] {
+  color: var(--berry);
+}
+
+.ginger__status[data-tone='done'] {
+  color: var(--pine);
+}
+
+.ginger__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ginger-piece[data-settled='true'],
+  .ginger-icing {
+    animation: none;
+  }
+}

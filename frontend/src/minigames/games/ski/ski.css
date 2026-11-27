@@ -1,0 +1,311 @@
+.ski-game {
+  --ski-ink: #111d34;
+  --ski-panel: rgb(16 29 51 / 0.9);
+  --ski-edge: rgb(222 237 255 / 0.26);
+  --ski-text: #f6f3eb;
+  --ski-muted: #cbd9eb;
+  --ski-gold: #ffd284;
+  --ski-gutter: clamp(14px, 2.5vw, 26px);
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  color: var(--ski-text);
+}
+
+.ski-game__view,
+.ski-game__view canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.ski-game__view:focus-visible {
+  outline: 0;
+}
+
+.ski-game::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to bottom, rgb(10 20 40 / 0.65), transparent 25%),
+    linear-gradient(to top, rgb(10 20 40 / 0.5), transparent 26%);
+}
+
+.ski-game__hud,
+.ski-game__controls,
+.ski-game__card,
+.ski-game__skip {
+  position: absolute;
+  z-index: 1;
+}
+
+.ski-game__hud {
+  top: calc(var(--safe-top) + var(--ski-gutter) + 56px);
+  right: calc(var(--safe-right) + var(--ski-gutter));
+  left: calc(var(--safe-left) + var(--ski-gutter));
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.ski-game__meter,
+.ski-game__tricks,
+.ski-game__pause,
+.ski-game__skip,
+.ski-game__cue,
+.ski-game__buttons button {
+  border: 1px solid var(--ski-edge);
+  background: var(--ski-panel);
+  box-shadow: 0 4px 15px rgb(12 22 42 / 0.17);
+}
+
+.ski-game__meter {
+  width: clamp(132px, 28vw, 244px);
+  padding: 8px 11px 10px;
+  border-radius: 13px;
+}
+
+.ski-game__meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 5px;
+  font-size: 0.76rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.ski-game__meter-label span {
+  color: var(--ski-muted);
+}
+
+.ski-game__track {
+  position: relative;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: #4e637c;
+}
+
+.ski-game__track i,
+.ski-game__track b {
+  position: absolute;
+  display: block;
+  height: 100%;
+}
+
+.ski-game__track i {
+  background: var(--ski-gold);
+  transition: width 0.12s linear;
+}
+
+.ski-game__track b {
+  width: 1px;
+  background: #fff3db;
+  opacity: 0.72;
+}
+
+.ski-game__hud-right {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.ski-game__tricks,
+.ski-game__pause,
+.ski-game__skip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  border-radius: 13px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ski-game__tricks {
+  gap: 5px;
+  padding: 0 10px;
+  font-size: 0.83rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ski-game__tricks span {
+  color: var(--ski-gold);
+  font-size: 1rem;
+}
+
+.ski-game__pause {
+  width: 44px;
+  min-height: 44px;
+  pointer-events: auto;
+}
+
+.ski-game__pause i {
+  height: 13px;
+  width: 10px;
+  border-left: 3px solid currentColor;
+  border-right: 3px solid currentColor;
+}
+
+.ski-game__skip {
+  right: calc(var(--safe-right) + var(--ski-gutter));
+  bottom: calc(var(--safe-bottom) + var(--ski-gutter));
+  min-height: 44px;
+  padding: 0 15px;
+  font-size: 0.89rem;
+}
+
+.ski-game__card {
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + var(--ski-gutter));
+  width: min(calc(100% - 2 * var(--ski-gutter)), 430px);
+  transform: translateX(-50%);
+  border: 1px solid var(--ski-edge);
+  border-radius: 22px;
+  background: var(--ski-panel);
+  box-shadow: 0 14px 36px rgb(13 24 44 / 0.38);
+  padding: clamp(13px, 2.3vh, 23px) clamp(14px, 3.9vw, 26px);
+  text-align: center;
+}
+
+.ski-game__card h3 {
+  margin-bottom: 7px;
+  font-size: clamp(1.35rem, 4.9vw, 1.95rem);
+}
+
+.ski-game__card p {
+  font-size: clamp(0.88rem, 2.5vw, 1rem);
+  line-height: 1.33;
+  color: var(--ski-muted);
+}
+
+.ski-game__card .ski-game__input-hint {
+  margin-top: 7px;
+  color: var(--ski-text);
+  font-weight: 700;
+}
+
+.ski-game__primary {
+  min-height: 44px;
+  margin: 13px auto 3px;
+  background: var(--ski-gold);
+  color: #2f2634;
+  box-shadow: 0 4px 0 #906b44;
+  line-height: 1.16;
+}
+
+.ski-game__primary:active {
+  box-shadow: 0 1px 0 #906b44;
+}
+
+.ski-game__controls {
+  right: calc(var(--safe-right) + var(--ski-gutter));
+  bottom: calc(var(--safe-bottom) + var(--ski-gutter));
+  left: calc(var(--safe-left) + var(--ski-gutter));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.ski-game__buttons {
+  width: min(100%, 466px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: clamp(5px, 1.3vw, 13px);
+}
+
+.ski-game__buttons button {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 53px;
+  padding: 4px 3px;
+  border-radius: 13px;
+  color: var(--ski-text);
+  font-size: clamp(0.71rem, 2.13vw, 0.85rem);
+  font-weight: 800;
+  line-height: 1.1;
+  pointer-events: auto;
+  touch-action: manipulation;
+}
+
+.ski-game__buttons span {
+  margin-bottom: 3px;
+  font-size: 1.34rem;
+  line-height: 1;
+  color: var(--ski-gold);
+}
+
+.ski-game__buttons button:active,
+.ski-game__pause:active,
+.ski-game__skip:active {
+  background: #355370;
+}
+
+.ski-game__cue {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: clamp(0.78rem, 2.8vw, 0.89rem);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.ski-game__cue span {
+  color: var(--ski-gold);
+  font-size: 1.1rem;
+}
+
+.ski-game__cue[data-now='true'] {
+  background: var(--ski-gold);
+  color: var(--ski-ink);
+}
+
+.ski-game__cue[data-now='true'] span {
+  color: inherit;
+}
+
+.ski-game__feedback:not(:empty) {
+  border-radius: 999px;
+  padding: 5px 12px;
+  color: var(--ski-ink);
+  background: var(--ski-gold);
+  font-weight: 900;
+  box-shadow: 0 3px 15px rgb(14 25 48 / 0.28);
+}
+
+.ski-game__feedback[data-bump='true'] {
+  background: #fff3db;
+}
+
+@media (min-width: 680px) {
+  .ski-game__card {
+    left: auto;
+    right: calc(var(--safe-right) + var(--ski-gutter));
+    width: min(390px, 43%);
+    transform: none;
+  }
+}
+
+@media (max-height: 540px) {
+  .ski-game__controls {
+    gap: 4px;
+  }
+
+  .ski-game__buttons button {
+    min-height: 44px;
+  }
+}

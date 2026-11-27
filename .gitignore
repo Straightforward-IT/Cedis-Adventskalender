@@ -1,0 +1,16 @@
+node_modules
+dist
+*.local
+*.log
+.DS_Store
+
+# Geheimnisse und daraus erzeugte QR-Codes gehören nicht ins Repository
+.env
+.env.*
+!.env.example
+backend/qr-codes
+
+.wrangler
+
+# Lokale Claude-Code-Einstellungen
+.claude/settings.local.json
