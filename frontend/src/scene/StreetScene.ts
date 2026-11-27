@@ -22,6 +22,7 @@ import { buildGingerbreadHouse, GINGER_SCALE } from './gingerbreadHouse.ts'
 import type { GingerbreadDesign } from './gingerbreadHouse.ts'
 import { buildGableReindeer } from './reindeer.ts'
 import { buildLightChain } from './lightChain.ts'
+import { buildSleighWithSanta } from './sleigh.ts'
 import { buildSquirrel } from './squirrel.ts'
 import { createEnvironment } from './environment.ts'
 import type { Environment } from './environment.ts'
@@ -56,7 +57,7 @@ import {
   loadPhotoTexture,
 } from './textures.ts'
 import type { NumberAtlas } from './textures.ts'
-import { ROAD_CENTER_Z } from './world.ts'
+import { ROAD_CENTER_Z, TREE_HEIGHT, TREE_Z } from './world.ts'
 
 export interface HouseState {
   /** Bewohnt: Die Fenster leuchten, die Lichterketten funkeln, der Schornstein raucht. */
@@ -88,6 +89,12 @@ export interface StreetSceneOptions {
 
 /** So weit hebt sich die Kamera für den Blick auf den Mond – über alle Dächer hinweg. */
 const MOON_LIFT = new THREE.Vector3(0, 14, 3)
+/** Easter Egg nach Santa Bibber: So lange braucht der Schlitten quer übers Bild – und so lange wartet er, bis man sich umgedreht hat. */
+const FLYBY_SECONDS = 4.6
+const FLYBY_DELAY = 0.7
+/** Flugbahn: so weit hinter dem Baum und so hoch über seiner Spitze. */
+const FLYBY_BEHIND_TREE = 4
+const FLYBY_ABOVE_TREE = 3.5
 const CAMERA_NEAR = 0.8
 const GAP_NEAR = 0.25
 
@@ -328,6 +335,9 @@ export class StreetScene {
   /** Das selbst verzierte Lebkuchenhaus im Fenster von Haus 7. */
   private gingerbread: { mesh: THREE.Mesh; key: string } | null = null
   private skiHalfpipe: ReturnType<typeof createSkiHalfpipe> | null = null
+  /** Easter Egg aus Haus 11: Der Weihnachtsmann fliegt beim Blick zum Baum darüber hinweg. */
+  private flyby: { group: THREE.Group; t: number; active: boolean } | null = null
+  private flybyEnabled = false
   /** Easter Egg nach Haus 6: Eichhörnchen tauchen auf der Straße auf und lassen sich abwerfen. */
   private critter: {
     group: THREE.Group
@@ -1072,6 +1082,60 @@ export class StreetScene {
     this.lightChain!.group.visible = true
   }
 
+  /** Nach Santa Bibber (Haus 11) fliegt der Weihnachtsmann bei jedem Blick zum Baum vorbei. */
+  setSantaFlyby(enabled: boolean): void {
+    this.flybyEnabled = enabled
+    if (!enabled && this.flyby) {
+      this.flyby.active = false
+      this.flyby.group.visible = false
+    }
+  }
+
+  /**
+   * Schickt den Schlitten einmal von links nach rechts über den Baum – aus Sicht der Kamera,
+   * die gerade die Straße entlang zum Baum schaut. Ohne gelöstes Haus 11 passiert nichts.
+   */
+  flySanta(): void {
+    if (!this.flybyEnabled) return
+    if (!this.flyby) {
+      const group = buildSleighWithSanta(this.solidMaterial)
+      group.visible = false
+      group.traverse((object) => {
+        const mesh = object as THREE.Mesh
+        if (mesh.geometry) this.disposables.push(mesh.geometry)
+      })
+      this.scene.add(group)
+      this.flyby = { group, t: 0, active: false }
+    }
+    // Läuft er schon, darf er erst zu Ende fliegen.
+    if (this.flyby.active) return
+    this.flyby.t = -FLYBY_DELAY
+    this.flyby.active = true
+  }
+
+  private updateFlyby(dt: number): void {
+    const flyby = this.flyby
+    if (!flyby?.active) return
+    flyby.t += dt
+    const u = flyby.t / FLYBY_SECONDS
+    flyby.group.visible = u >= 0 && u <= 1
+    if (u > 1) {
+      flyby.active = false
+      return
+    }
+    if (u < 0) return
+    // In echter Entfernung und Größe: knapp hinter dem Baum, ein paar Meter über der Spitze.
+    // Er zieht von Bildrand zu Bildrand – je weiter weg, desto länger der Weg.
+    const camera = this.camera.position
+    const x = this.layout.treeX + FLYBY_BEHIND_TREE
+    const distance = Math.max(10, x - camera.x)
+    const across = Math.max(14, distance * Math.tan(THREE.MathUtils.degToRad(this.camera.fov / 2)) * this.camera.aspect * 1.15)
+    const y = TREE_HEIGHT + FLYBY_ABOVE_TREE + Math.sin(u * Math.PI) * 1.2
+    flyby.group.position.set(x, y, TREE_Z - across + u * across * 2)
+    // Der Schlitten fährt in +x; gedreht fliegt er nach +z – vom Baum aus gesehen nach rechts.
+    flyby.group.rotation.set(Math.sin(this.time.value * 2.4) * 0.05, -Math.PI / 2, Math.sin(this.time.value * 2.4 + 1) * 0.06)
+  }
+
   /** Hinter Haus 8 fährt der Skiwichtel, sobald sein Spiel gelöst ist. */
   setSkiHalfpipe(visible: boolean): void {
     if ((this.skiHalfpipe?.group.visible ?? false) === visible) return
@@ -1585,6 +1649,7 @@ export class StreetScene {
     this.updateElf(dt)
     this.updateCritter(dt)
     this.updateReindeer(dt)
+    this.updateFlyby(dt)
     if (this.conveyor?.conveyor.group.visible) this.conveyor.conveyor.update(this.time.value)
     if (this.skiHalfpipe?.group.visible) this.skiHalfpipe.update(this.time.value)
     if (this.fireplace?.window.group.visible) this.fireplace.window.update(this.time.value)

@@ -56,6 +56,16 @@ const games: Partial<Record<number, MinigameDefinition>> = {
     layout: 'wide',
     load: () => import('./games/firewood/FirewoodGame.tsx'),
   },
+  11: {
+    title: 'Santa Bibber',
+    layout: 'wide',
+    load: () => import('./games/santa/SantaGame.tsx'),
+  },
+  12: {
+    title: 'Durch den Schornstein',
+    layout: 'wide',
+    load: () => import('./games/chimney/ChimneyGame.tsx'),
+  },
   [SKI_HOUSE_DAY]: {
     title: 'Wichtel auf Skiern',
     layout: 'outdoor',

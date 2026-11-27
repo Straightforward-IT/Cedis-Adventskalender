@@ -181,8 +181,11 @@ export function toggleLook(): void {
   dismissHint()
   const { look, place } = getState()
   const atEnd = place !== null && place >= GATE_DAY
+  // „Zum Baum schauen“: Nach Santa Bibber fliegt dann der Weihnachtsmann darüber hinweg.
+  const towardTree = atEnd ? look < 0 : look === 0
   if (atEnd) scene?.look(look < 0 ? 0 : -1)
   else scene?.look(look === 0 ? 1 : 0)
+  if (towardTree) scene?.flySanta()
 }
 
 // ----------------------------------------------------------- Schlüssel

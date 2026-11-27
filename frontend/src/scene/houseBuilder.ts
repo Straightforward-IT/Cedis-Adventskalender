@@ -64,6 +64,13 @@ const SHOWCASE_FLOORS: Partial<Record<number, number>> = { 1: 1 }
  * Dahinter sitzt nach dem Holzhacken (Haus 10) ein Wichtel am Kamin.
  */
 const HEARTH_HOUSES = new Set([10])
+/**
+ * Häuser mit Balkon zur Straße: Im ersten Obergeschoss wird das rechte Fenster zur
+ * Balkontür, davor ein schneebedeckter Balkon mit Geländer (Haus 12 – dort geht es
+ * im Spiel über den Balkon wieder hinaus).
+ */
+const BALCONY_HOUSES = new Set([12])
+const BALCONY_DEPTH = 0.95
 
 /** Rechteckiger Teil eines Schaufensters samt seinem Lichtverlauf (unten, oben). */
 export interface ShowcaseWindow {
@@ -91,6 +98,8 @@ export interface HouseAnchors {
   hearth: ShowcaseWindow | null
   /** Vordere Dachkante (von links nach rechts) – dort hängt z. B. die Lichterkette aus Haus 9. */
   eaves: { points: Point[]; z: number }
+  /** Mitte des Balkonbodens (Oberkante), falls das Haus einen Balkon hat. */
+  balcony: THREE.Vector3 | null
 }
 
 export interface HouseGeometry {
@@ -164,6 +173,7 @@ class HouseBuilder {
   private readonly windowRects: { x: number; y: number; width: number; height: number }[] = []
   private readonly showcase: ShowcaseWindow[] = []
   private hearth: ShowcaseWindow | null = null
+  private balcony: THREE.Vector3 | null = null
   private smoke: THREE.Vector3 | null = null
   private top: number
 
@@ -214,6 +224,7 @@ class HouseBuilder {
         smoke: this.smoke,
         showcase: this.showcase,
         hearth: this.hearth,
+        balcony: this.balcony,
         eaves: this.edge,
       },
     }
@@ -663,12 +674,52 @@ class HouseBuilder {
         if (!spot.inGable && floor === spec.floors - 1 && column === 1) continue
         const x = columnX(spec, column)
         const hearth = HEARTH_HOUSES.has(spec.day) && floor === spec.floors - 1 && column === spec.columns - 1
+        const balcony = BALCONY_HOUSES.has(spec.day) && floor === 1 && column === spec.columns - 1
         const showcase = SHOWCASE_FLOORS[spec.day] === floor
-        const lit = rnd.chance(0.82) || showcase || hearth
+        const lit = rnd.chance(0.82) || showcase || hearth || balcony
+        if (balcony) {
+          // Die Balkontür reicht fast bis zum Boden des Geschosses.
+          const doorSill = base + 0.08
+          const doorHeight = 1.9
+          this.window(x, doorSill, width, doorHeight, lit, { balcony: true })
+          this.windowRects.push({ x, y: doorSill, width, height: doorHeight })
+          this.addBalcony(x, base)
+          continue
+        }
         this.window(x, sill, width, height, lit, { spill: floor === 0, showcase, hearth })
         this.windowRects.push({ x, y: sill, width, height })
       }
     }
+  }
+
+  /** Balkon vor der Balkontür: Bodenplatte mit Konsolen, Geländer mit Stäben, Schnee obendrauf. */
+  private addBalcony(x: number, base: number): void {
+    const { solid, trim, snow } = this
+    const width = 1.75
+    const depth = BALCONY_DEPTH
+    const floorTop = base + 0.06
+    const z = depth / 2
+    const iron = col(IRON)
+    solid.box(x, floorTop - 0.07, z, width, 0.14, depth, trim)
+    solid.box(x, floorTop + 0.02, z, width - 0.04, 0.05, depth - 0.04, snow)
+    for (const side of [-1, 1]) {
+      // Konsolen unter der Platte
+      solid.box(x + side * (width / 2 - 0.15), floorTop - 0.3, depth * 0.35, 0.1, 0.32, depth * 0.6, trim)
+    }
+    // Geländer: Handlauf vorn und an den Seiten, Stäbe dazwischen
+    const railY = floorTop + 0.92
+    solid.box(x, railY, depth - 0.04, width, 0.06, 0.07, iron)
+    solid.box(x, floorTop + 0.12, depth - 0.04, width, 0.04, 0.05, iron)
+    solid.box(x, railY + 0.05, depth - 0.04, width - 0.02, 0.05, 0.09, snow)
+    for (const side of [-1, 1]) {
+      solid.box(x + side * (width / 2 - 0.03), railY, z, 0.06, 0.06, depth, iron)
+      solid.box(x + side * (width / 2 - 0.03), floorTop + 0.46, depth - 0.04, 0.07, 0.92, 0.07, iron)
+      for (let k = 1; k < 4; k++) solid.box(x + side * (width / 2 - 0.03), floorTop + 0.46, (depth * k) / 4, 0.03, 0.9, 0.03, iron)
+    }
+    for (let i = 1; i < 10; i++) {
+      solid.box(x - width / 2 + (width * i) / 10, floorTop + 0.5, depth - 0.04, 0.03, 0.8, 0.03, iron)
+    }
+    this.balcony = new THREE.Vector3(x, floorTop + 0.045, z)
   }
 
   private windowLight(): readonly [THREE.Color, THREE.Color] {
@@ -682,11 +733,11 @@ class HouseBuilder {
     width: number,
     height: number,
     lit: boolean,
-    options: { plain?: boolean; spill?: boolean; showcase?: boolean; hearth?: boolean } = {},
+    options: { plain?: boolean; spill?: boolean; showcase?: boolean; hearth?: boolean; balcony?: boolean } = {},
   ): void {
     const { solid, glow, halo, spec, trim } = this
     // Ins Kaminfenster soll man ungestört hineinschauen – ohne Sprossen.
-    const style = options.plain || options.hearth ? 'plain' : spec.windows.style
+    const style = options.plain || options.hearth ? 'plain' : options.balcony ? 'cross' : spec.windows.style
     const arched = style === 'arched'
     const rectHeight = arched ? height - width / 2 : height
     const middle = sill + rectHeight / 2
@@ -703,6 +754,9 @@ class HouseBuilder {
       if (arched) glow.disc(x, top, 0.09, width / 2, light[1], { ...halfCircle, glow: shine })
       if (options.showcase) {
         this.showcase.push({ x, y: sill, width, height: rectHeight, light })
+        this.skipDecoRandom(spec.windows.deco)
+      } else if (options.balcony) {
+        // Balkontür: ohne Fensterdeko, dieselben Zufallszahlen wie sonst.
         this.skipDecoRandom(spec.windows.deco)
       } else if (options.hearth) {
         this.hearth = { x, y: sill, width, height: rectHeight, light }

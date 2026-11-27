@@ -31,6 +31,8 @@ const GINGER_DAY = 7
 const LIGHTS_DAY = 9
 /** Holz hacken: Danach brennt in Haus 10 der Kamin, und der Schornstein spuckt Flammen. */
 const FIREWOOD_DAY = 10
+/** Santa Bibber: Danach fliegt der Weihnachtsmann bei jedem Blick zum Baum vorbei. */
+const SANTA_DAY = 11
 
 const sceneModule = import('../scene/StreetScene.ts')
 
@@ -72,6 +74,7 @@ function syncScene(scene: StreetScene): () => void {
       scene.setSkiHalfpipe(houseStatus(state, SKI_HOUSE_DAY) === 'completed')
       scene.setLightChain(houseStatus(state, LIGHTS_DAY) === 'completed' ? LIGHTS_DAY : null, LAMP_COLORS)
       scene.setFireplace(houseStatus(state, FIREWOOD_DAY) === 'completed' ? FIREWOOD_DAY : null)
+      scene.setSantaFlyby(houseStatus(state, SANTA_DAY) === 'completed')
     }
     if (state.selfies !== previous?.selfies) {
       for (let day = 1; day <= TOTAL_DAYS; day++) scene.setSelfie(day, state.selfies[day] ?? null)
