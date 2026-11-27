@@ -8,13 +8,14 @@
 # Ablauf:
 #   1. Lint, Tests und Build laufen lokal – schlägt etwas fehl, wird nichts veröffentlicht.
 #   2. Alle Änderungen werden mit der Nachricht committet.
-#   3. Push nach GitHub (origin/main) → Cloudflare Pages baut das Frontend automatisch.
+#   3. Push nach GitHub (origin/main) → Cloudflare baut das Frontend (frontend/wrangler.jsonc).
 #   4. Push nach Heroku (Remote „heroku“) → Heroku baut und startet das Backend.
+#   5. Kurzer Gesundheitscheck des Backends (/healthz).
 #
 # Einmalig einrichten (siehe README, „Veröffentlichen“):
 #   heroku login
-#   heroku git:remote -a <app-name>      # legt den Remote „heroku“ an
-#   Cloudflare Pages mit dem GitHub-Repository verbinden
+#   heroku git:remote -a cedis-adventskalender   # legt den Remote „heroku“ an
+#   Cloudflare-Worker mit dem GitHub-Repository verbinden (README, „Frontend auf Cloudflare“)
 #
 set -euo pipefail
 
@@ -22,6 +23,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 BRANCH="main"
+HEROKU_APP="cedis-adventskalender"
+BACKEND_URL="https://cedis-adventskalender-2500ece77636.herokuapp.com"
 REPO_URL="https://github.com/Straightforward-IT/Cedis-Adventskalender.git"
 
 say() { printf '\n\033[1;32m▸ %s\033[0m\n' "$*"; }
@@ -72,14 +75,26 @@ else
 fi
 
 # --- Veröffentlichen ------------------------------------------------------------------
-say "Push nach GitHub ($BRANCH) – Cloudflare Pages baut das Frontend"
+say "Push nach GitHub ($BRANCH) – Cloudflare baut das Frontend"
 git push -u origin "$BRANCH"
 
 if git remote get-url heroku >/dev/null 2>&1; then
   say "Push nach Heroku – Backend wird gebaut"
   git push heroku "$BRANCH"
+
+  say "Prüfe Backend ($BACKEND_URL/healthz)"
+  ok=false
+  for _ in 1 2 3 4 5 6; do
+    if curl -fsS --max-time 10 "$BACKEND_URL/healthz" >/dev/null 2>&1; then ok=true; break; fi
+    sleep 5
+  done
+  if [[ "$ok" == true ]]; then
+    printf '  Backend antwortet.\n'
+  else
+    warn "Backend antwortet nicht – Logs: heroku logs --tail -a $HEROKU_APP"
+  fi
 else
-  warn "Kein Heroku-Remote – Backend nicht veröffentlicht. Einmalig: heroku login && heroku git:remote -a <app-name>"
+  warn "Kein Heroku-Remote – Backend nicht veröffentlicht. Einmalig: heroku login && heroku git:remote -a $HEROKU_APP"
 fi
 
 say "Fertig 🎄"

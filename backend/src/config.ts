@@ -9,7 +9,8 @@ export interface Config {
   calendarYear: number
   /** Nur zum Testen: ersetzt das heutige Datum. */
   debugDate: BerlinDate | null
-  corsOrigins: string[]
+  /** Erlaubte Ursprünge – genaue Adressen oder Muster aus CORS_ORIGINS mit `*`. */
+  corsOrigins: (string | RegExp)[]
   frontendUrl: string
   /** Eigene Belohnungstexte pro Tag (aus REWARDS_JSON). */
   rewardMessages: Record<number, string>
@@ -28,6 +29,17 @@ const DEV_ORIGINS = [
 ]
 
 type Env = Record<string, string | undefined>
+
+/**
+ * Ein Eintrag aus CORS_ORIGINS. Ein `*` steht für genau einen Namensteil ohne Punkt –
+ * so passen z. B. die Vorschau-Adressen von Cloudflare Workers
+ * (`https://*-cedis-adventskalender.*.workers.dev`), aber keine fremden Domains.
+ */
+export function originPattern(origin: string): string | RegExp {
+  if (!origin.includes('*')) return origin
+  const escaped = origin.split('*').map((part) => part.replace(/[.+?^${}()|[\]\\/-]/g, '\\$&'))
+  return new RegExp(`^${escaped.join('[a-z0-9-]+')}$`, 'i')
+}
 
 function parseRewards(raw: string | undefined): Record<number, string> {
   if (!raw?.trim()) return {}
@@ -75,6 +87,7 @@ export function loadConfig(env: Env = process.env): Config {
     .split(',')
     .map((origin) => origin.trim().replace(/\/+$/, ''))
     .filter(Boolean)
+    .map(originPattern)
   const corsOrigins =
     configuredOrigins.length > 0
       ? configuredOrigins

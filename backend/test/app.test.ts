@@ -194,6 +194,26 @@ describe('CORS', () => {
       expect(foreign.headers.get('access-control-allow-origin')).toBeNull()
     })
   })
+
+  it('erlaubt Muster mit * für Cloudflare-Adressen', async () => {
+    const env = {
+      CORS_ORIGINS: `${ORIGIN}, https://cedis-adventskalender.*.workers.dev, https://*-cedis-adventskalender.*.workers.dev`,
+    }
+    await withApi({ env }, async (call) => {
+      const origin = async (value: string) =>
+        (await call('/api/status', { headers: { Origin: value } })).headers.get('access-control-allow-origin')
+
+      expect(await origin(ORIGIN)).toBe(ORIGIN)
+      expect(await origin('https://cedis-adventskalender.cedi.workers.dev')).toBe('https://cedis-adventskalender.cedi.workers.dev')
+      expect(await origin('https://1a2b3c4d-cedis-adventskalender.cedi.workers.dev')).toBe(
+        'https://1a2b3c4d-cedis-adventskalender.cedi.workers.dev',
+      )
+      // Ein * überspringt keine Punkte – fremde Domains bleiben draußen.
+      expect(await origin('https://cedis-adventskalender.evil.com.workers.dev')).toBeNull()
+      expect(await origin('https://cedis-adventskalender.x.workers.dev.evil.com')).toBeNull()
+      expect(await origin('http://cedis-adventskalender.cedi.workers.dev')).toBeNull()
+    })
+  })
 })
 
 describe('unbekannte Pfade', () => {

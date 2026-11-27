@@ -28,7 +28,7 @@ QR-Code scannen → Haus entdecken → Selfie → Tür geht auf → Minispiel �
 
 ```
 backend/     API (Node, Express, TypeScript)      → Heroku
-frontend/    App (Vite, React, three.js)          → Cloudflare Pages
+frontend/    App (Vite, React, three.js)          → Cloudflare Worker
 scripts/     Startet beides zusammen für die Entwicklung
 ```
 
@@ -93,8 +93,8 @@ npm --prefix frontend run preview
 ```
 
 Dann `/dev` unter der ausgegebenen Vorschau-Adresse öffnen. Bei Hosting auf einem anderen
-Server muss dieser die SPA-Einstiegsdatei auch für `/dev/...` ausliefern (Cloudflare Pages macht
-das bereits). `npm run preview` allein aktiviert die Routen eines normalen Builds nicht.
+Server muss dieser die SPA-Einstiegsdatei auch für `/dev/...` ausliefern (der Cloudflare Worker
+macht das über `not_found_handling`). `npm run preview` allein aktiviert die Routen eines normalen Builds nicht.
 
 ### Den Advent vorspulen
 
@@ -152,33 +152,55 @@ Beide Dienste bauen aus demselben Git-Repository
 ./scripts/deploy.sh "Was sich geändert hat"
 ```
 
-Das Skript prüft Lint, Tests und Build, committet alles, pusht nach GitHub (Cloudflare Pages
-baut daraufhin das Frontend) und – falls der Remote `heroku` eingerichtet ist – nach Heroku.
+Das Skript prüft Lint, Tests und Build, committet **alles** im Arbeitsordner, pusht nach GitHub
+(Cloudflare baut daraufhin das Frontend) und nach Heroku (Backend) und fragt zum Schluss
+`/healthz` des Backends ab. Halbfertiges also vorher fertig machen oder beiseitelegen.
+
+| Teil     | Dienst             | Adresse                                                    |
+| -------- | ------------------ | ---------------------------------------------------------- |
+| Backend  | Heroku `cedis-adventskalender` (EU) | https://cedis-adventskalender-2500ece77636.herokuapp.com |
+| Frontend | Cloudflare Worker `cedis-adventskalender` | `*.workers.dev`, später `adventskalender.bleck.it` |
 
 ### Backend auf Heroku
 
+Schon eingerichtet. Für einen neuen Rechner reicht:
+
 ```sh
-heroku create <app-name> --region eu
+heroku login
+heroku git:remote -a cedis-adventskalender
+```
+
+So wurde die App angelegt:
+
+```sh
+heroku create cedis-adventskalender --region eu
 heroku config:set QR_SECRET="$(openssl rand -base64 32)" CALENDAR_YEAR=2026 \
-  FRONTEND_URL=https://adventskalender.bleck.it
-git push heroku main
+  FRONTEND_URL=https://adventskalender.bleck.it \
+  CORS_ORIGINS="https://adventskalender.bleck.it,https://cedis-adventskalender.*.workers.dev,https://*-cedis-adventskalender.*.workers.dev"
 ```
 
 Heroku baut von der Wurzel des Repositorys: `heroku-postbuild` in der `package.json` kompiliert
-das Backend, die `Procfile` startet es.
+das Backend, die `Procfile` startet es. In `CORS_ORIGINS` steht `*` für genau einen Namensteil
+ohne Punkt – so passen die workers.dev-Adresse und die Vorschau-Builds von Cloudflare.
 
-### Frontend auf Cloudflare Pages
+### Frontend auf Cloudflare (Workers mit statischen Assets)
 
-Projekt mit dem Repository verbinden und einstellen:
+`frontend/wrangler.jsonc` beschreibt den Worker: Er liefert `dist/` aus, unbekannte Pfade
+bekommen `index.html`. In Cloudflare unter *Workers & Pages → Anwendung erstellen → Repository
+importieren* einstellen:
 
-| Einstellung        | Wert                                               |
-| ------------------ | -------------------------------------------------- |
-| Stammverzeichnis   | `frontend`                                         |
-| Build-Befehl       | `npm run build`                                    |
-| Ausgabeverzeichnis | `dist`                                             |
-| Umgebungsvariablen | `VITE_API_URL=https://<app-name>.herokuapp.com`    |
+| Einstellung                          | Wert                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------ |
+| Projektname                          | `cedis-adventskalender` (wie `name` in `wrangler.jsonc`)                 |
+| Build-Befehl                         | `npm run build`                                                          |
+| Bereitstellungsbefehl                | `npx wrangler deploy`                                                    |
+| Pfad (Erweiterte Einstellungen)      | `frontend`                                                               |
+| Build-Variable                       | `VITE_API_URL=https://cedis-adventskalender-2500ece77636.herokuapp.com`  |
 
-Danach `adventskalender.bleck.it` als eigene Domain hinzufügen.
+`VITE_API_URL` ist eine **Build**-Variable: Vite schreibt sie beim Bauen in die App.
+Danach unter *Einstellungen → Domains & Routen* `adventskalender.bleck.it` hinzufügen.
+
+Probelauf ohne Hochladen: `cd frontend && npm run build && npx wrangler deploy --dry-run`.
 
 ### QR-Codes für die Boxen drucken
 
